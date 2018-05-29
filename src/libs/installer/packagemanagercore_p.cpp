@@ -1056,10 +1056,21 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
         }
     }
 
+#if 0
     if (!out.copy(maintenanceToolRenamedName)) {
         throw Error(tr("Cannot write maintenance tool to \"%1\": %2").arg(maintenanceToolRenamedName,
             out.errorString()));
     }
+#else
+    // Fixed like mentioned in QTIFW-1110
+    // TODO: kbi SQP_MODIFICATION documentation
+    out.flush();
+    out.close();
+    QFile src(out.fileName());
+    if (!src.copy(maintenanceToolRenamedName)) {
+        qDebug() << out.errorString();
+    }
+#endif
 
     QFile mt(maintenanceToolRenamedName);
     if (mt.setPermissions(out.permissions() | QFile::WriteUser | QFile::ReadGroup | QFile::ReadOther
@@ -1352,6 +1363,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
                     dummy.errorString()));
             }
 
+#if 0
             if (!file.rename(dataFile + QLatin1String(".new"))) {
                 throw Error(tr("Cannot write maintenance tool binary data to %1: %2")
                     .arg(file.fileName(), file.errorString()));
@@ -1359,6 +1371,16 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
             file.setAutoRemove(false);
             file.setPermissions(file.permissions() | QFile::WriteUser | QFile::ReadGroup
                 | QFile::ReadOther);
+#else
+            // Solved as mentioned in bug QTIFW-1110
+            // TODO: kbi SQP_MODIFICATION documentation
+            file.flush();
+            QFile tmpfr(file.fileName());
+            if (!tmpfr.copy(dataFile + QLatin1String(".new")))
+                throw Error(tr("Cannot write maintenance tool binary data to %1: %2").arg(file.fileName(), file.errorString()));
+            QFile tmpfr2(dataFile + QLatin1String(".new"));
+            tmpfr2.setPermissions(file.permissions() | QFile::WriteUser | QFile::ReadGroup | QFile::ReadOther);
+#endif
         } catch (const Error &/*error*/) {
             if (!newBinaryWritten) {
                 newBinaryWritten = true;

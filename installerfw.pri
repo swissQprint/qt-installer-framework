@@ -1,3 +1,6 @@
+
+DEFAULT_INSTALL_PREFIX = M:\development\binaries\installer-framework
+
 !isEmpty(IFW_PRI_INCLUDED) {
     error("installerfw.pri already included")
 }
@@ -134,3 +137,8 @@ equals(TEMPLATE, app) {
     win32-g++*:POST_TARGETDEPS += $$IFW_LIB_PATH/libinstaller.a $$IFW_LIB_PATH/lib7z.a
     unix:POST_TARGETDEPS += $$IFW_LIB_PATH/libinstaller.a $$IFW_LIB_PATH/lib7z.a
 }
+
+!defined(INSTALL_PREFIX, var) {
+    INSTALL_PREFIX = $$DEFAULT_INSTALL_PREFIX
+}
+IFW_INSTALL_DIR = $$INSTALL_PREFIX

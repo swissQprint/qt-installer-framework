@@ -114,5 +114,8 @@ win32 {
 
 macx:include(../../no_app_bundle.pri)
 
-target.path = $$[QT_INSTALL_BINS]
+target.path = $$IFW_INSTALL_DIR
 INSTALLS += target
+
+#target.path = $$[QT_INSTALL_BINS]
+#INSTALLS += target

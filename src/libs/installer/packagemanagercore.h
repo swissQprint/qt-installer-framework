@@ -78,6 +78,8 @@ public:
     QString error() const;
 
     enum WizardPage {
+        SqpWelcomePage = 0x0001,
+        SqpMachineAuthPage = 0x0002,
         Introduction = 0x1000,
         TargetDirectory = 0x2000,
         ComponentSelection = 0x3000,

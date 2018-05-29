@@ -15,6 +15,7 @@ include(../../../installerfw.pri)
 #   ...
 #   your files if needed
 HEADERS += productkeycheck.h
+
 !isEmpty(PRODUCTKEYCHECK_PRI_FILE) {
     # use undocumented no_batch config which disable the implicit rules on msvc compilers
     # this fixes the problem that same cpp files in different directories are overwritting
@@ -131,7 +132,10 @@ HEADERS += packagemanagercore.h \
     lib7z_guid.h \
     lib7z_create.h \
     lib7z_extract.h \
-    lib7z_list.h
+    lib7z_list.h \
+    sqp/installsettings.hpp \
+    sqp/WelcomePage.hpp \
+    sqp/MachineAuthenticationPage.hpp
 
 SOURCES += packagemanagercore.cpp \
     packagemanagercore_p.cpp \
@@ -206,10 +210,15 @@ SOURCES += packagemanagercore.cpp \
     serverauthenticationdialog.cpp \
     keepaliveobject.cpp \
     systeminfo.cpp \
-    packagesource.cpp
+    packagesource.cpp \
+    sqp/WelcomePage.cpp \
+    sqp/MachineAuthenticationPage.cpp \
+    sqp/installsettings.cpp
 
 FORMS += proxycredentialsdialog.ui \
-    serverauthenticationdialog.ui
+    serverauthenticationdialog.ui \
+    sqp/WelcomePage.ui \
+    sqp/MachineAuthenticationPage.ui
 
 RESOURCES += resources/installer.qrc
 

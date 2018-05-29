@@ -28,9 +28,37 @@
 
 #include "productkeycheck.h"
 #include "packagemanagercore.h"
+#include "packagemanagerpagefactory.h"
+
+#include "sqp/WelcomePage.hpp"
+#include "sqp/MachineAuthenticationPage.hpp"
+
+using namespace QInstaller;
 
 class ProductKeyCheckPrivate
 {
+    public:
+        ProductKeyCheckPrivate() {  }
+        virtual ~ProductKeyCheckPrivate() {  }
+
+        void registerSqpPages() {
+            registerPage<sqp::WelcomePage>(PackageManagerCore::SqpWelcomePage);
+            registerPage<sqp::MachineAuthenticationPage>(PackageManagerCore::SqpMachineAuthPage);
+        }
+
+        QList<int> registeredPages() const {
+            return m_registeredPages;
+        }
+
+    private:
+        template<typename T>
+        void registerPage(int id) {
+            auto& factory = PackageManagerPageFactory::instance();
+            factory.registerPackageManagerPage<T>(id);
+            m_registeredPages << id;
+        }
+
+        QList<int> m_registeredPages;
 };
 
 ProductKeyCheck::ProductKeyCheck()
@@ -52,6 +80,7 @@ ProductKeyCheck *ProductKeyCheck::instance()
 void ProductKeyCheck::init(QInstaller::PackageManagerCore *core)
 {
     Q_UNUSED(core)
+    d->registerSqpPages();
 }
 
 bool ProductKeyCheck::hasValidKey()
@@ -99,7 +128,7 @@ bool ProductKeyCheck::isValidPackage(const QString &packageName) const
 
 QList<int> ProductKeyCheck::registeredPages() const
 {
-    return QList<int>();
+    return d->registeredPages();
 }
 
 bool ProductKeyCheck::hasValidLicense() const

@@ -297,9 +297,9 @@ PackageManagerGui::PackageManagerGui(PackageManagerCore *core, QWidget *parent)
     , m_core(core)
 {
     if (m_core->isInstaller())
-        setWindowTitle(tr("%1 Setup").arg(m_core->value(scTitle)));
+        setWindowTitle(tr("%1 - Setup").arg(m_core->value(scTitle)));
     else
-        setWindowTitle(tr("Maintain %1").arg(m_core->value(scTitle)));
+        setWindowTitle(tr("Maintain - %1").arg(m_core->value(scTitle)));
     setWindowFlags(windowFlags() &~ Qt::WindowContextHelpButtonHint);
 
 #ifndef Q_OS_OSX
@@ -2207,7 +2207,7 @@ void ComponentSelectionPage::entering()
     if (core->isInstaller()) index = 1;
     if (core->isUninstaller()) index = 2;
     if (core->isPackageManager()) index = 3;
-    setColoredSubTitle(tr(strings[index]));
+    setSubTitle(tr(strings[index]));
 
     d->updateTreeView();
     setModified(isComplete());
@@ -2638,7 +2638,7 @@ StartMenuDirectoryPage::StartMenuDirectoryPage(PackageManagerCore *core)
     setPixmap(QWizard::WatermarkPixmap, QPixmap());
     setObjectName(QLatin1String("StartMenuDirectoryPage"));
     setColoredTitle(tr("Start Menu shortcuts"));
-    setColoredSubTitle(tr("Select the Start Menu in which you would like to create the program's "
+    setSubTitle(tr("Select the Start Menu in which you would like to create the program's "
         "shortcuts. You can also enter a name to create a new directory."));
 
     m_lineEdit = new QLineEdit(this);

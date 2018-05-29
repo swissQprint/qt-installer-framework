@@ -610,6 +610,7 @@ MetadataJob::Status MetadataJob::parseUpdatesXml(const QList<FileTaskResult> &re
         }
 
         if (!repositoryUpdates.isEmpty()) {
+#if 0
             Settings &s = m_core->settings();
             const QSet<Repository> temporaries = s.temporaryRepositories();
             // in case the temp repository introduced something new, we only want that temporary
@@ -637,6 +638,27 @@ MetadataJob::Status MetadataJob::parseUpdatesXml(const QList<FileTaskResult> &re
                 QFile::remove(result.target());
                 return XmlDownloadRetry;
             }
+#else
+            // Only work with temporary repositories if they come along with a repository update
+            // in an Updates.xml
+            // TODO: kbi SQP_MODIFICATION documentation
+            Settings &s = m_core->settings();
+            const QSet<Repository> temporaries = s.temporaryRepositories();
+            QSet<Repository> tmpRepositories;
+            typedef QPair<Repository, Repository> RepositoryPair;
+            QList<RepositoryPair> values = repositoryUpdates.values(QLatin1String("add"));
+            foreach (const RepositoryPair &value, values)
+                tmpRepositories.insert(value.first);
+            values = repositoryUpdates.values(QLatin1String("replace"));
+            foreach (const RepositoryPair &value, values)
+                tmpRepositories.insert(value.first);
+            tmpRepositories = tmpRepositories.subtract(temporaries);
+            if (tmpRepositories.count() > 0) {
+                s.addTemporaryRepositories(tmpRepositories, true);
+                QFile::remove(result.target());
+                return XmlDownloadRetry;
+            }
+#endif
         }
     }
     double taskCount = m_packages.length()/static_cast<double>(m_downloadableChunkSize);

@@ -4,7 +4,13 @@
 #include <QtNetwork>
 #include <QUrl>
 #include <QIntValidator>
+#include <QMessageBox>
 #include <QDebug>
+
+constexpr int feedbackTimeout() { return 5000; }
+constexpr const char* authenticationResource() {
+    return "https://dev.api.swissqprint.com/1.1/authorization/tokens";
+}
 
 namespace QInstaller {
 namespace sqp {
@@ -13,37 +19,25 @@ MachineAuthenticationPage::MachineAuthenticationPage(PackageManagerCore *core) :
     PackageManagerPage(core)
 {
     ui.setupUi(this);
+    qRegisterMetaType<MachineAuthenticationPage::Event>();
     setObjectName(QLatin1String("AuthenticationPage"));
     setColoredTitle(tr("swissQprint machine token"));
     setSettingsButtonRequested(true);
-    connect(ui.serialnumber, &QLineEdit::returnPressed,
-            this, &MachineAuthenticationPage::authenticate);
+
+    registerField(QLatin1String("authenticationToken*"), ui.authenticationToken);
+    registerField(QLatin1String("policyAcceptance*"), ui.policyAcceptance);
+
+    connect(ui.authenticationToken, &QLineEdit::textChanged,
+            this, &MachineAuthenticationPage::completeChanged);
     connect(ui.policyAcceptance, &QCheckBox::toggled,
-            this, &MachineAuthenticationPage::authenticate);
-    connect(ui.btnRequest, &QPushButton::clicked,
-            this, &MachineAuthenticationPage::sendRequest);
-
-    connect(&m_manager, &QNetworkAccessManager::finished, this, [this](QNetworkReply* reply) {
-        if(reply->error()) {
-            qDebug() << "ERROR!";
-            qDebug() << reply->errorString();
-        }
-        else {
-            qDebug() << reply->header(QNetworkRequest::ContentTypeHeader).toString();
-            qDebug() << reply->header(QNetworkRequest::LastModifiedHeader).toDateTime().toString();;
-            qDebug() << reply->header(QNetworkRequest::ContentLengthHeader).toULongLong();
-            qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            qDebug() << reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-            qDebug() << reply->readAll();
-        }
-
-        reply->deleteLater();
-    });
-    connect(&m_manager, &QNetworkAccessManager::sslErrors, this, [this](QNetworkReply* reply, const QList<QSslError>& errors){
-        qDebug() << "ssl errors of" << reply->url();
-        for (const auto& e : errors)
-            qDebug() << e.errorString();
-    });
+            this, &MachineAuthenticationPage::completeChanged);
+    connect(&m_net, &QNetworkAccessManager::finished,
+            this, &MachineAuthenticationPage::handleResponse);
+    connect(&m_net, &QNetworkAccessManager::sslErrors,
+            this, &MachineAuthenticationPage::handleSslErrors);
+    connect(this, &MachineAuthenticationPage::event,
+            this, &MachineAuthenticationPage::handleEvent,
+            Qt::QueuedConnection);
 }
 
 MachineAuthenticationPage::~MachineAuthenticationPage() {  }
@@ -51,61 +45,109 @@ MachineAuthenticationPage::~MachineAuthenticationPage() {  }
 bool MachineAuthenticationPage::isComplete() const
 {
     return PackageManagerPage::isComplete()
-            && m_authenticated
-            && ui.policyAcceptance->isChecked();
+           && (!ui.authenticationToken->text().isEmpty())
+           && ui.policyAcceptance->isChecked();
 }
 
 void MachineAuthenticationPage::initializePage()
 {
     PackageManagerPage::initializePage();
-    // Load values from persistant storage
-    // TODO: kbi
+    using namespace sqp::installsettings;
+    ui.authenticationToken->setText(value(AuthenticationToken).toString());
 }
 
-void MachineAuthenticationPage::authenticate()
+void MachineAuthenticationPage::cleanupPage()
 {
-    if (!ui.policyAcceptance->isChecked()) {
-        qDebug() << "Policy not accepted...";
-        return;
+    PackageManagerPage::cleanupPage();
+    setState(State::Unauthenticated);
+}
+
+bool MachineAuthenticationPage::validatePage()
+{
+    if (m_state == State::Authenticated)
+        return true;
+    if (m_state == State::Authenticating)
+        return false;
+    emit event(Event::Authenticate);
+    return false;
+}
+
+void MachineAuthenticationPage::startAuthentication(const QString &token)
+{
+    QNetworkRequest request;
+    request.setUrl(QString::fromLatin1("%1/%2")
+                   .arg(QString::fromLatin1(authenticationResource()))
+                   .arg(token));
+    request.setRawHeader("Accept", "application/json");
+    m_net.get(request);
+}
+
+void MachineAuthenticationPage::handleResponse(QNetworkReply *reply)
+{
+    if(reply->error()) {
+        showFeedback(reply->errorString(), feedbackTimeout());
+        emit event(Event::Failure);
     }
-
-    auto token = ui.token->text();
-    auto serialnumber = ui.serialnumber->text();
-
-    qDebug() << __FUNCTION__ << "TODO: kbi - authenticate machine" << serialnumber << "with token" << token;
-
-    auto ok = (!token.isEmpty() && !serialnumber.isEmpty());
-
-    // ...
-
-    if (ok) {
-        sqp::installsettings::setValue(sqp::installsettings::AuthenticationToken, token);
-        sqp::installsettings::setValue(sqp::installsettings::Serialnumber, serialnumber);
+    else {
+        emit event(Event::Success);
     }
-
-    setAuthenticated(ok);
+    reply->deleteLater();
 }
 
-void MachineAuthenticationPage::resetAuthentication()
+void MachineAuthenticationPage::handleSslErrors(QNetworkReply *reply,
+                                                const QList<QSslError> &errors)
 {
-    setAuthenticated(false);
+    /* Auf ssl Probleme reagieren und dem User die Möglichkeit bieten diese
+     * zu ignorieren.
+     * TODO kbi diese Möglichekeit wieder entfernen.
+     */
+    QString errMsg;
+    for (const auto& e : errors)
+        errMsg += e.errorString();
+    auto ans = QMessageBox::critical(this, windowTitle(),
+                                     tr("Some SSL errors occoured. Ignore?\n\n%1")
+                                     .arg(errMsg),
+                                     QMessageBox::Yes|QMessageBox::No);
+    if (ans == QMessageBox::Yes)
+        reply->ignoreSslErrors();
 }
 
-void MachineAuthenticationPage::sendRequest()
+void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event event)
 {
-//    QNetworkRequest request;
-//    request.setUrl(QUrl(QLatin1String("http://www.mocky.io/v2/5b0be2aa3300002b00b3fe35?mocky-delay=1000ms")));
-////    request.setRawHeader("Accept", "application/json");
-////    request.setRawHeader("Authorization", "Basic " + QByteArray("kbi:whatever").toBase64());
-////    m_manager.sendCustomRequest(request, "GET", "{ \"release_number\": \"3.5.8.77\" }");
-//    m_manager.get(request);
-//    qDebug() << "Request sent to" << request.url();
+    switch (m_state) {
+        case State::Unauthenticated:
+            if (event == Event::Authenticate) {
+                setState(State::Authenticating);
+                startAuthentication(ui.authenticationToken->text());
+            }
+            break;
+        case State::Authenticating:
+            if (event == Event::Success)
+                setState(State::Authenticated);
+            else if (event == Event::Failure)
+                setState(State::Unauthenticated);
+            break;
+        case State::Authenticated:
+            if (event == Event::Entered) {
+                using namespace sqp::installsettings;
+                setValue(AuthenticationToken, ui.authenticationToken->text());
+                wizard()->next();
+                setState(State::Unauthenticated);
+            }
+            break;
+    }
 }
 
-void MachineAuthenticationPage::setAuthenticated(bool a)
+void MachineAuthenticationPage::showFeedback(const QString &msg, int timeout)
 {
-    m_authenticated = a;
-    emit completeChanged();
+    ui.lblFeedback->setText(msg);
+    QTimer::singleShot(timeout, ui.lblFeedback, &QLabel::clear);
+}
+
+void MachineAuthenticationPage::setState(MachineAuthenticationPage::State s)
+{
+    m_state = s;
+    emit event(Event::Entered);
 }
 
 } // namespace sqp

@@ -19,25 +19,25 @@
      <item row="0" column="1">
       <widget class="QLabel" name="label_3">
        <property name="text">
-        <string>Please enter machine serial number and authentication token</string>
+        <string>Please enter machine authentication token</string>
        </property>
       </widget>
      </item>
-     <item row="2" column="0">
+     <item row="1" column="0">
       <widget class="QLabel" name="label_4">
        <property name="text">
         <string>Token</string>
        </property>
       </widget>
      </item>
-     <item row="2" column="1">
-      <widget class="QLineEdit" name="token">
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="authenticationToken">
        <property name="placeholderText">
         <string>Authentication token</string>
        </property>
       </widget>
      </item>
-     <item row="3" column="1">
+     <item row="2" column="1">
       <widget class="QLabel" name="label_2">
        <property name="text">
         <string>&lt;a href=&quot;https://extranet.swissqprint.com/en/login#/show-forgot-password&quot;&gt;Forgot token?&lt;/a&gt;</string>
@@ -53,33 +53,22 @@
        </property>
       </widget>
      </item>
-     <item row="4" column="1">
+     <item row="3" column="1">
       <widget class="QCheckBox" name="policyAcceptance">
        <property name="text">
         <string>Accept the terms of policy</string>
        </property>
       </widget>
      </item>
-     <item row="1" column="1">
-      <widget class="QLineEdit" name="serialnumber">
-       <property name="placeholderText">
-        <string>Serialnumber</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Serial</string>
-       </property>
-      </widget>
-     </item>
     </layout>
    </item>
    <item>
-    <widget class="QPushButton" name="btnRequest">
+    <widget class="QLabel" name="lblFeedback">
      <property name="text">
-      <string>Request</string>
+      <string/>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
      </property>
     </widget>
    </item>

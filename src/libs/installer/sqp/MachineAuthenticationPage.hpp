@@ -13,26 +13,50 @@ class INSTALLER_EXPORT MachineAuthenticationPage : public PackageManagerPage
     Q_OBJECT
 
     public:
+        enum class State {
+            Unauthenticated,
+            Authenticating,
+            Authenticated
+        };
+
+        enum class Event {
+            Authenticate,
+            Success,
+            Failure,
+            Entered
+        };
+
         MachineAuthenticationPage(PackageManagerCore* core);
         virtual ~MachineAuthenticationPage();
 
         virtual bool isComplete() const override;
         virtual void initializePage() override;
+        virtual void cleanupPage() override;
+        virtual bool validatePage() override;
+
+    signals:
+        void event(Event e);
 
     private slots:
-        void authenticate();
-        void resetAuthentication();
-        void sendRequest();
+        void handleResponse(QNetworkReply*);
+        void handleSslErrors(QNetworkReply*, const QList<QSslError>&);
+        void handleEvent(Event event);
 
     private:
-        void setAuthenticated(bool a);
-        bool m_authenticated = false;
+        void startAuthentication(const QString& token);
+        void showFeedback(const QString& msg, int timeout);
         Ui::MachineAuthenticationPage ui;
-        QNetworkAccessManager m_manager;
+        QNetworkAccessManager m_net;
+
+        void setState(State s);
+        State m_state = State::Unauthenticated;
 };
 
 
 } // namespace sqp
 } // namespace QInstaller
+
+Q_DECLARE_METATYPE(QInstaller::sqp::MachineAuthenticationPage::State)
+Q_DECLARE_METATYPE(QInstaller::sqp::MachineAuthenticationPage::Event)
 
 #endif // QINSTALLER_SQP_MACHINEAUTHENTICATIONPAGE_HPP

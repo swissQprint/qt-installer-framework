@@ -380,13 +380,19 @@ QNetworkReply *Downloader::startDownload(const FileTaskItem &item)
         return 0;
     }
 
-    QNetworkReply *reply = m_nam.get(QNetworkRequest(source));
+    qDebug() << "Download:" << source.toString();
+
+    QNetworkRequest request(source);
+    request.setRawHeader("Accept", "application/xml");
+
+    QNetworkReply *reply = m_nam.get(request);
     std::unique_ptr<Data> data(new Data(item));
     m_downloads[reply] = std::move(data);
 
     connect(reply, &QIODevice::readyRead, this, &Downloader::onReadyRead);
     connect(reply, SIGNAL(error(QNetworkReply::NetworkError)), this,
         SLOT(onError(QNetworkReply::NetworkError)));
+
 #ifndef QT_NO_SSL
     connect(reply, &QNetworkReply::sslErrors, this, &Downloader::onSslErrors);
 #endif

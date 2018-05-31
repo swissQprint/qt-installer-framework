@@ -647,8 +647,12 @@ MetadataJob::Status MetadataJob::parseUpdatesXml(const QList<FileTaskResult> &re
             QSet<Repository> tmpRepositories;
             typedef QPair<Repository, Repository> RepositoryPair;
             QList<RepositoryPair> values = repositoryUpdates.values(QLatin1String("add"));
-            foreach (const RepositoryPair &value, values)
+            foreach (const RepositoryPair &value, values) {
                 tmpRepositories.insert(value.first);
+                qDebug() << "Temporary Repository:";
+                qDebug() << " url:" << value.first.url();
+                qDebug() << " name:" << value.first.displayname();
+            }
             values = repositoryUpdates.values(QLatin1String("replace"));
             foreach (const RepositoryPair &value, values)
                 tmpRepositories.insert(value.first);

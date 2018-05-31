@@ -280,6 +280,12 @@ void Downloader::onSslErrors(const QList<QSslError> &sslErrors)
 #else
     foreach (const QSslError &error, sslErrors)
         qDebug() << "SSL error:" << error.errorString();
+    auto reply = qobject_cast<QNetworkReply*>(sender());
+    if (reply) {
+        reply->ignoreSslErrors();
+        qDebug() << "SSL errors ignored...";
+    }
+    else qDebug() << "Failed to ignore ssl errors...";
 #endif
 }
 

@@ -55,6 +55,8 @@ void MachineAuthenticationPage::initializePage()
     PackageManagerPage::initializePage();
     using namespace sqp::installsettings;
     ui.token->setText(value(Token).toString());
+    ui.policyAcceptance->setEnabled(packageManagerCore()->isInstaller());
+    ui.policyAcceptance->setChecked(!packageManagerCore()->isInstaller());
 }
 
 void MachineAuthenticationPage::cleanupPage()

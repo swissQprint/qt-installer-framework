@@ -261,6 +261,9 @@ void Downloader::onError(QNetworkReply::NetworkError error)
         if (data.taskItem.source().contains(QLatin1String("Updates.xml"), Qt::CaseInsensitive)) {
             qDebug() << QString::fromLatin1("Network error while downloading '%1': %2.").arg(
                    data.taskItem.source(), reply->errorString());
+            m_futureInterface->reportException(
+                TaskException(tr("Network error while downloading '%1': %2.").arg(
+                                      data.taskItem.source(), reply->errorString())));
         } else {
             m_futureInterface->reportException(
                 TaskException(tr("Network error while downloading '%1': %2.").arg(

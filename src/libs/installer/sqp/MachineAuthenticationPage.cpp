@@ -1,5 +1,6 @@
 #include "MachineAuthenticationPage.hpp"
 #include "installsettings.hpp"
+#include "constants.h"
 
 #include <QtNetwork>
 #include <QUrl>
@@ -20,14 +21,14 @@ MachineAuthenticationPage::MachineAuthenticationPage(PackageManagerCore *core) :
 {
     ui.setupUi(this);
     qRegisterMetaType<MachineAuthenticationPage::Event>();
-    setObjectName(QLatin1String("AuthenticationPage"));
-    setColoredTitle(tr("swissQprint machine token"));
+    setObjectName(QLatin1String("MachineAuthenticationPage"));
+    setColoredTitle(tr("Authenticate machine"));
     setSettingsButtonRequested(true);
 
-    registerField(QLatin1String("authenticationToken*"), ui.authenticationToken);
+    registerField(QLatin1String("token*"), ui.token);
     registerField(QLatin1String("policyAcceptance*"), ui.policyAcceptance);
 
-    connect(ui.authenticationToken, &QLineEdit::textChanged,
+    connect(ui.token, &QLineEdit::textChanged,
             this, &MachineAuthenticationPage::completeChanged);
     connect(ui.policyAcceptance, &QCheckBox::toggled,
             this, &MachineAuthenticationPage::completeChanged);
@@ -45,7 +46,7 @@ MachineAuthenticationPage::~MachineAuthenticationPage() {  }
 bool MachineAuthenticationPage::isComplete() const
 {
     return PackageManagerPage::isComplete()
-           && (!ui.authenticationToken->text().isEmpty())
+           && (!ui.token->text().isEmpty())
            && ui.policyAcceptance->isChecked();
 }
 
@@ -53,7 +54,7 @@ void MachineAuthenticationPage::initializePage()
 {
     PackageManagerPage::initializePage();
     using namespace sqp::installsettings;
-    ui.authenticationToken->setText(value(AuthenticationToken).toString());
+    ui.token->setText(value(Token).toString());
 }
 
 void MachineAuthenticationPage::cleanupPage()
@@ -118,7 +119,7 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
         case State::Unauthenticated:
             if (event == Event::Authenticate) {
                 setState(State::Authenticating);
-                startAuthentication(ui.authenticationToken->text());
+                startAuthentication(ui.token->text());
             }
             break;
         case State::Authenticating:
@@ -129,9 +130,31 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
             break;
         case State::Authenticated:
             if (event == Event::Entered) {
-                using namespace sqp::installsettings;
-                setValue(AuthenticationToken, ui.authenticationToken->text());
+                using namespace sqp;
+                auto token = ui.token->text();
+                auto core = packageManagerCore();
+
+                // Url, die der Installer bei jeder Anfrage an den Server
+                // sendet muss jetzt auch noch angepasst werden, damit der
+                // eben verifizierte Token mitgesandt wird.
+                auto queryUrl = core->value(scUrlQueryString);
+                auto separator = QLatin1String("?");
+                if (!queryUrl.isEmpty())
+                    separator = QLatin1String("&");
+                queryUrl += separator + QLatin1String("token=") + token;
+                core->setValue(scUrlQueryString, queryUrl);
+
+                // Token in ini file ablegen
+                installsettings::setValue(installsettings::Token, token);
+
+                // Token für die Verwendung in Scripts im Installer speichern
+                core->setValue(installsettings::Token, token);
+
+                // auf nächste WizardPage springen
                 wizard()->next();
+
+                // Zustand zurücksetzen, damit beim nächsten Eintritt in die
+                // Page wieder neu authentifiziert wird.
                 setState(State::Unauthenticated);
             }
             break;

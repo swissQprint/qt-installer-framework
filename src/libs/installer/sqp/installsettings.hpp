@@ -9,7 +9,7 @@ namespace QInstaller {
 namespace sqp {
 namespace installsettings {
     // Keys
-    static const QLatin1String AuthenticationToken("authenticationToken");
+    static const QLatin1String Token("token");
     static const QLatin1String Serialnumber("serialnumber");
 
     // Functions

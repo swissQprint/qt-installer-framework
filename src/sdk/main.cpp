@@ -101,6 +101,8 @@ int main(int argc, char *argv[])
 
         if (parser.isSet(QLatin1String(CommandLineOptions::Version))) {
             std::cout << VERSION << std::endl << BUILDDATE << std::endl << SHA << std::endl;
+            std::cout << "SQP: " << std::endl;
+            std::cout << SQP_IFW_VERSION_STRING << " (" << SQP_IFW_RELEASE_STAGE_NAME << ")" << std::endl;
             const QDateTime dateTime = QDateTime::fromString(QLatin1String(PLACEHOLDER),
                 QLatin1String("yyyy-MM-dd - HH:mm:ss"));
             if (dateTime.isValid())

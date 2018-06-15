@@ -1,5 +1,5 @@
 
-DEFAULT_INSTALL_PREFIX = M:\development\binaries\installer-framework
+SQP_DEFAULT_INSTALL_PREFIX = M:\deployment\Lory\qtinstaller
 
 !isEmpty(IFW_PRI_INCLUDED) {
     error("installerfw.pri already included")
@@ -138,7 +138,91 @@ equals(TEMPLATE, app) {
     unix:POST_TARGETDEPS += $$IFW_LIB_PATH/libinstaller.a $$IFW_LIB_PATH/lib7z.a
 }
 
-!defined(INSTALL_PREFIX, var) {
-    INSTALL_PREFIX = $$DEFAULT_INSTALL_PREFIX
+# Release Directory
+CONFIG(release, debug|release) {
+    RELEASE_DIR = release
 }
-IFW_INSTALL_DIR = $$INSTALL_PREFIX
+
+# Architecture
+linux-g++:QMAKE_TARGET.arch = $$QMAKE_HOST.arch
+linux-g++-32:QMAKE_TARGET.arch = x86
+linux-g++-64:QMAKE_TARGET.arch = x86_64
+equals(QMAKE_TARGET.arch, x86_64) { ARCH = amd64 }
+else { ARCH = i386 }
+
+# Prüfen, ob bereits ein release stage definiert ist, falls nicht -> dev-snapshot
+!defined(SQP_RELEASE_STAGE_NAME, var) {
+    SQP_RELEASE_STAGE_NAME = "dev-snapshot"
+}
+
+#
+# alpha
+#
+equals(SQP_RELEASE_STAGE_NAME, "alpha") {
+    !defined(SQP_VERSION_STRING, var) { error(Variable SQP_VERSION_STRING not accessible.) }
+    !defined(SQP_VERSION_MAJOR, var) { error(Variable SQP_VERSION_MAJOR not accessible.) }
+    !defined(SQP_VERSION_MINOR, var) { error(Variable SQP_VERSION_MINOR not accessible.) }
+    !defined(SQP_VERSION_PATCH, var) { error(Variable SQP_VERSION_PATCH not accessible.) }
+    !defined(SQP_VERSION_TWEAK, var) { error(Variable SQP_VERSION_TWEAK not accessible.) }
+    SQP_IFW_VERSION_DIR = $$SQP_VERSION_STRING-alpha
+}
+
+#
+# beta
+#
+equals(SQP_RELEASE_STAGE_NAME, "beta") {
+    !defined(SQP_VERSION_STRING, var) { error(Variable SQP_VERSION_STRING not accessible.) }
+    !defined(SQP_VERSION_MAJOR, var) { error(Variable SQP_VERSION_MAJOR not accessible.) }
+    !defined(SQP_VERSION_MINOR, var) { error(Variable SQP_VERSION_MINOR not accessible.) }
+    !defined(SQP_VERSION_PATCH, var) { error(Variable SQP_VERSION_PATCH not accessible.) }
+    !defined(SQP_VERSION_TWEAK, var) { error(Variable SQP_VERSION_TWEAK not accessible.) }
+    SQP_IFW_VERSION_DIR = $$SQP_VERSION_STRING-beta
+}
+
+#
+# stable
+#
+equals(SQP_RELEASE_STAGE_NAME, "stable") {
+    !defined(SQP_VERSION_STRING, var) { error(Variable SQP_VERSION_STRING not accessible.) }
+    !defined(SQP_VERSION_MAJOR, var) { error(Variable SQP_VERSION_MAJOR not accessible.) }
+    !defined(SQP_VERSION_MINOR, var) { error(Variable SQP_VERSION_MINOR not accessible.) }
+    !defined(SQP_VERSION_PATCH, var) { error(Variable SQP_VERSION_PATCH not accessible.) }
+    !defined(SQP_VERSION_TWEAK, var) { error(Variable SQP_VERSION_TWEAK not accessible.) }
+    SQP_IFW_VERSION_DIR = $$SQP_VERSION_STRING
+}
+
+#
+# dev-snapshot
+#
+equals(SQP_RELEASE_STAGE_NAME, "dev-snapshot") {
+    SQP_VERSION_MAJOR = 255
+    SQP_VERSION_MINOR = 0
+    SQP_VERSION_PATCH = 0
+    SQP_VERSION_TWEAK = 0
+    SQP_VERSION_STRING  = $$sprintf("%1.%2.%3.%4", $$SQP_VERSION_MAJOR, $$SQP_VERSION_MINOR, $$SQP_VERSION_PATCH, $$SQP_VERSION_TWEAK)
+    SQP_IFW_VERSION_DIR = dev-snapshot
+}
+
+#
+# git-snapshot
+#
+equals(SQP_RELEASE_STAGE_NAME, "git-snapshot") {
+    !defined(GIT_BRANCH, var) { error(Variable GIT_BRANCH not defined.) }
+    SQP_VERSION_MAJOR = 254
+    SQP_VERSION_MINOR = 0
+    SQP_VERSION_PATCH = 0
+    SQP_VERSION_TWEAK = 0
+    SQP_VERSION_STRING  = $$sprintf("%1.%2.%3.%4", $$SQP_VERSION_MAJOR, $$SQP_VERSION_MINOR, $$SQP_VERSION_PATCH, $$SQP_VERSION_TWEAK)
+    SQP_IFW_VERSION_DIR = "git-snapshot/"$$GIT_BRANCH
+}
+
+# Install path
+!defined(SQP_INSTALL_PREFIX, var) {
+    SQP_INSTALL_PREFIX = $$SQP_DEFAULT_INSTALL_PREFIX
+}
+!defined(INSTALL_POSTFIX, var) {
+    SQP_INSTALL_POSTFIX = $$SQP_IFW_VERSION_DIR/$$ARCH/$$RELEASE_DIR
+}
+
+SQP_IFW_INSTALL_BASE_DIR = $$SQP_INSTALL_PREFIX
+SQP_IFW_INSTALL_DIR = $$SQP_IFW_INSTALL_BASE_DIR/$$SQP_INSTALL_POSTFIX

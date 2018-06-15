@@ -210,7 +210,7 @@ equals(SQP_RELEASE_STAGE_NAME, "git-snapshot") {
     SQP_VERSION_PATCH = 0
     SQP_VERSION_TWEAK = 0
     SQP_VERSION_STRING  = $$sprintf("%1.%2.%3.%4", $$SQP_VERSION_MAJOR, $$SQP_VERSION_MINOR, $$SQP_VERSION_PATCH, $$SQP_VERSION_TWEAK)
-    SQP_IFW_VERSION_DIR = "git-snapshot/"$$GIT_BRANCH
+    SQP_IFW_VERSION_DIR = "git-snapshot/"$$SQP_GIT_BRANCH
 }
 
 SQP_DEFAULT_INSTALL_PREFIX = M:/deployment/Lory/qtinstaller

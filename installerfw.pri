@@ -204,7 +204,7 @@ equals(SQP_RELEASE_STAGE_NAME, "dev-snapshot") {
 # git-snapshot
 #
 equals(SQP_RELEASE_STAGE_NAME, "git-snapshot") {
-    !defined(GIT_BRANCH, var) { error(Variable GIT_BRANCH not defined.) }
+    !defined(SQP_GIT_BRANCH, var) { error(Variable SQP_GIT_BRANCH not defined.) }
     SQP_VERSION_MAJOR = 254
     SQP_VERSION_MINOR = 0
     SQP_VERSION_PATCH = 0

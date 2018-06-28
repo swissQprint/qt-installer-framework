@@ -108,6 +108,12 @@ int UpdateChecker::check()
         update.setAttribute(QLatin1String("name"), component->value(QInstaller::scDisplayName));
         update.setAttribute(QLatin1String("version"), component->value(QInstaller::scVersion));
         update.setAttribute(QLatin1String("size"), component->value(QInstaller::scUncompressedSize));
+        update.setAttribute(QLatin1String("current"), component->value(QInstaller::scInstalledVersion));
+        update.setAttribute(QLatin1String("canonicalName"), component->value(QInstaller::scName));
+        update.setAttribute(QLatin1String("essential"), component->value(QInstaller::scEssential));
+        update.setAttribute(QLatin1String("virtual"), component->value(QInstaller::scVirtual));
+        update.setAttribute(QLatin1String("releaseDate"), component->value(QInstaller::scReleaseDate));
+        update.setAttribute(QLatin1String("sort"), component->value(QInstaller::scSortingPriority));
         root.appendChild(update);
     }
 

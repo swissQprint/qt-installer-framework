@@ -433,6 +433,7 @@ void PackageManagerCore::writeMaintenanceTool()
                 dropAdminRights();
             d->m_needToWriteMaintenanceTool = false;
         } catch (const Error &error) {
+            qCritical() << "Error writing Maintenance Tool: " << error.message();
             MessageBoxHandler::critical(MessageBoxHandler::currentBestSuitParent(),
                 QLatin1String("WriteError"), tr("Error writing Maintenance Tool"), error.message(),
                 QMessageBox::Ok, QMessageBox::Ok);
@@ -449,17 +450,16 @@ void PackageManagerCore::writeMaintenanceConfigFiles()
 }
 
 /*!
-    Resets the class to its initial state and applies the values of the
-    parameters specified by \a params.
+    Resets the class to its initial state.
 */
-void PackageManagerCore::reset(const QHash<QString, QString> &params)
+void PackageManagerCore::reset()
 {
     d->m_completeUninstall = false;
     d->m_needsHardRestart = false;
     d->m_status = PackageManagerCore::Unfinished;
     d->m_installerBaseBinaryUnreplaced.clear();
-
-    d->initialize(params);
+    d->m_coreCheckedHash.clear();
+    d->m_componentsToInstallCalculated = false;
 }
 
 /*!
@@ -844,14 +844,13 @@ PackageManagerCore::PackageManagerCore(qint64 magicmaker, const QList<OperationB
     qRegisterMetaType<QInstaller::PackageManagerCore::Status>("QInstaller::PackageManagerCore::Status");
     qRegisterMetaType<QInstaller::PackageManagerCore::WizardPage>("QInstaller::PackageManagerCore::WizardPage");
 
+    d->initialize(QHash<QString, QString>());
     // Creates and initializes a remote client, makes us get admin rights for QFile, QSettings
     // and QProcess operations. Init needs to called to set the server side authorization key.
     if (!d->isUpdater()) {
         RemoteClient::instance().init(socketName, key, mode, Protocol::StartAs::SuperUser);
         RemoteClient::instance().setAuthorizationFallbackDisabled(settings().disableAuthorizationFallback());
     }
-
-    d->initialize(QHash<QString, QString>());
 
     //
     // Sanity check to detect a broken installations with missing operations.
@@ -869,14 +868,9 @@ PackageManagerCore::PackageManagerCore(qint64 magicmaker, const QList<OperationB
     if (!packagesWithoutOperation.isEmpty() || !orphanedOperations.isEmpty())  {
         qCritical() << "Operations missing for installed packages" << packagesWithoutOperation.toList();
         qCritical() << "Orphaned operations" << orphanedOperations.toList();
-        MessageBoxHandler::critical(
-                    MessageBoxHandler::currentBestSuitParent(),
-                    QLatin1String("Corrupt_Installation_Error"),
-                    QCoreApplication::translate("QInstaller", "Corrupt installation"),
-                    QCoreApplication::translate("QInstaller",
-                                                "Your installation seems to be corrupted. "
-                                                "Please consider re-installing from scratch."
-                                                ));
+        qCritical() << "Your installation seems to be corrupted. Please consider re-installing from scratch, "
+                       "remove the packages from components.xml which operations are missing, "
+                       "or reinstall the packages.";
     } else {
         qDebug() << "Operations sanity check succeeded.";
     }
@@ -2108,9 +2102,12 @@ bool PackageManagerCore::operationExists(const QString &name)
 }
 
 /*!
-    Instantly performs the operation \a name with \a arguments.
+    Performs the operation \a name with \a arguments.
 
     Returns \c false if the operation cannot be created or executed.
+
+    \note The operation is performed threaded. It is not advised to call
+    this function after installation finished signals.
 
     \sa {installer::performOperation}{installer.performOperation}
 */

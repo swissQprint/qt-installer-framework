@@ -231,15 +231,10 @@ QVariant ComponentModel::data(const QModelIndex &index, int role) const
         if (component->isUnstable() && role == Qt::ForegroundRole) {
             return QVariant(QColor(Qt::darkGray));
         }
-        if (role == Qt::DisplayRole &&
-            index.column() == ComponentModelHelper::NameColumn) {
-            QString content;
-            if (component->installationRequested()) {
-                content =  QString(QLatin1String("%1 (%2)"))
-                           .arg(component->value(scDisplayName))
-                           .arg(component->value(scVersion));
-            }
-            return content;
+        if (role == Qt::DisplayRole && index.column() == ComponentModelHelper::NameColumn) {
+            return QString(QLatin1String("%1 (%2)"))
+                       .arg(component->value(scDisplayName))
+                       .arg(component->value(scVersion));
         }
         return component->data(role);
     }

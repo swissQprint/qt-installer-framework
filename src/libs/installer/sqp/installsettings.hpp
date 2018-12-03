@@ -11,6 +11,7 @@ namespace installsettings {
     // Keys
     static const QLatin1String Token("token");
     static const QLatin1String Serialnumber("serialnumber");
+    static const QLatin1String BaseUrl("baseurl");
 
     // Functions
     void INSTALLER_EXPORT setValue(const QString& key, const QVariant& value);

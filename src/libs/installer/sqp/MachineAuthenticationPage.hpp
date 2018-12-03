@@ -35,7 +35,7 @@ class INSTALLER_EXPORT MachineAuthenticationPage : public PackageManagerPage
         virtual bool validatePage() override;
 
     signals:
-        void event(Event e);
+        void throwEvent(Event e);
 
     private slots:
         void handleResponse(QNetworkReply*);
@@ -45,11 +45,16 @@ class INSTALLER_EXPORT MachineAuthenticationPage : public PackageManagerPage
     private:
         void startAuthentication(const QString& token);
         void showFeedback(const QString& msg, int timeout);
+        QString token() const;
+        QString baseurl() const;
         Ui::MachineAuthenticationPage ui;
         QNetworkAccessManager m_net;
 
         void setState(State s);
         State m_state = State::Unauthenticated;
+
+        void writeMetaInfosToSettings();
+        QUrl defaultRepository() const;
 };
 
 

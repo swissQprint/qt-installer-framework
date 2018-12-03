@@ -17,7 +17,7 @@ inline QString programData()
 
 inline QString iniFile()
 {
-    return programData() + QLatin1String("/swissQprint/installer/suite.ini");
+    return programData() + QLatin1String("/swissQprint/maintenancetool/settings.ini");
 }
 
 namespace QInstaller {

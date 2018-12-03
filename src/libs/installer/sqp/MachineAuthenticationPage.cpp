@@ -1,5 +1,6 @@
 #include "MachineAuthenticationPage.hpp"
 #include "installsettings.hpp"
+#include "settings.h"
 #include "constants.h"
 
 #include <QtNetwork>
@@ -9,9 +10,6 @@
 #include <QDebug>
 
 constexpr int feedbackTimeout() { return 5000; }
-constexpr const char* authenticationResource() {
-    return "https://dev.api.swissqprint.com/1.1/authorization/tokens";
-}
 
 namespace QInstaller {
 namespace sqp {
@@ -36,7 +34,7 @@ MachineAuthenticationPage::MachineAuthenticationPage(PackageManagerCore *core) :
             this, &MachineAuthenticationPage::handleResponse);
     connect(&m_net, &QNetworkAccessManager::sslErrors,
             this, &MachineAuthenticationPage::handleSslErrors);
-    connect(this, &MachineAuthenticationPage::event,
+    connect(this, &MachineAuthenticationPage::throwEvent,
             this, &MachineAuthenticationPage::handleEvent,
             Qt::QueuedConnection);
 }
@@ -71,15 +69,16 @@ bool MachineAuthenticationPage::validatePage()
         return true;
     if (m_state == State::Authenticating)
         return false;
-    emit event(Event::Authenticate);
+    emit throwEvent(Event::Authenticate);
     return false;
 }
 
 void MachineAuthenticationPage::startAuthentication(const QString &token)
 {
+    const auto url = defaultRepository();
     QNetworkRequest request;
     request.setUrl(QString::fromLatin1("%1/%2")
-                   .arg(QString::fromLatin1(authenticationResource()))
+                   .arg(baseurl() + QLatin1String("/1.1/authorization/tokens"))
                    .arg(token));
     request.setRawHeader("Accept", "application/json");
     m_net.get(request);
@@ -89,10 +88,12 @@ void MachineAuthenticationPage::handleResponse(QNetworkReply *reply)
 {
     if(reply->error()) {
         showFeedback(reply->errorString(), feedbackTimeout());
-        emit event(Event::Failure);
+        emit throwEvent(Event::Failure);
     }
     else {
-        emit event(Event::Success);
+        // TODO kbi: Mike wird gewisse Metainformationen mit der Antwort liefern.
+        // Diese können wir später extrahieren und ins ini Ablegen.
+        emit throwEvent(Event::Success);
     }
     reply->deleteLater();
 }
@@ -102,17 +103,20 @@ void MachineAuthenticationPage::handleSslErrors(QNetworkReply *reply,
 {
     /* Auf ssl Probleme reagieren und dem User die Möglichkeit bieten diese
      * zu ignorieren.
-     * TODO kbi diese Möglichekeit wieder entfernen.
+     * TODO kbi diese Möglichekeit wieder entfernen und korrekte Behandlung
+     * von Zertifikaten auch von Seiten des Servers.
      */
     QString errMsg;
     for (const auto& e : errors)
         errMsg += e.errorString();
-    auto ans = QMessageBox::critical(this, windowTitle(),
-                                     tr("Some SSL errors occoured. Ignore?\n\n%1")
-                                     .arg(errMsg),
-                                     QMessageBox::Yes|QMessageBox::No);
-    if (ans == QMessageBox::Yes)
-        reply->ignoreSslErrors();
+    qWarning() << "SSL ERRORS:" << errMsg;
+    reply->ignoreSslErrors();
+//    auto ans = QMessageBox::critical(this, windowTitle(),
+//                                     tr("Some SSL errors occoured. Ignore?\n\n%1")
+//                                     .arg(errMsg),
+//                                     QMessageBox::Yes|QMessageBox::No);
+//    if (ans == QMessageBox::Yes)
+//        reply->ignoreSslErrors();
 }
 
 void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event event)
@@ -121,7 +125,7 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
         case State::Unauthenticated:
             if (event == Event::Authenticate) {
                 setState(State::Authenticating);
-                startAuthentication(ui.token->text());
+                startAuthentication(token());
             }
             break;
         case State::Authenticating:
@@ -132,25 +136,18 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
             break;
         case State::Authenticated:
             if (event == Event::Entered) {
-                using namespace sqp;
-                auto token = ui.token->text();
-                auto core = packageManagerCore();
+                writeMetaInfosToSettings();
 
                 // Url, die der Installer bei jeder Anfrage an den Server
                 // sendet muss jetzt auch noch angepasst werden, damit der
                 // eben verifizierte Token mitgesandt wird.
+                auto core = packageManagerCore();
                 auto queryUrl = core->value(scUrlQueryString);
                 auto separator = QLatin1String("?");
                 if (!queryUrl.isEmpty())
                     separator = QLatin1String("&");
-                queryUrl += separator + QLatin1String("token=") + token;
+                queryUrl += separator + QLatin1String("token=") + token();
                 core->setValue(scUrlQueryString, queryUrl);
-
-                // Token in ini file ablegen
-                installsettings::setValue(installsettings::Token, token);
-
-                // Token für die Verwendung in Scripts im Installer speichern
-                core->setValue(installsettings::Token, token);
 
                 // auf nächste WizardPage springen
                 wizard()->next();
@@ -169,10 +166,62 @@ void MachineAuthenticationPage::showFeedback(const QString &msg, int timeout)
     QTimer::singleShot(timeout, ui.lblFeedback, &QLabel::clear);
 }
 
+QString MachineAuthenticationPage::token() const
+{
+    return ui.token->text();
+}
+
+QString MachineAuthenticationPage::baseurl() const
+{
+    const auto url = defaultRepository();
+    return url.toString(QUrl::RemovePath|QUrl::NormalizePathSegments|QUrl::StripTrailingSlash);
+}
+
+/**
+ * @brief Wir schreiben hier einige Basisinformationen in ein Ini-File.
+ * Diese Informationen sind vielleicht für später nützlich.
+ */
+void MachineAuthenticationPage::writeMetaInfosToSettings()
+{
+    auto core = packageManagerCore();
+    using namespace sqp;
+
+    // Basis Url des Installers
+    const auto url = defaultRepository();
+    const auto base = baseurl();
+    installsettings::setValue(installsettings::BaseUrl, base);
+    core->setValue(installsettings::BaseUrl, base);
+
+    // verwendetes Token
+    const auto token = ui.token->text();
+    installsettings::setValue(installsettings::Token, token);
+    core->setValue(installsettings::Token, token);
+}
+
+/**
+ * @brief Ermittelt das Default-Repository. Dieses wird vom Installer für die
+ * Http-Anfragen verwendet. Das ist jene Url, im config.xml eingetragen ist. Es
+ * sollte auch immer nur ein Repository vorhanden sein.
+ * @return Gesamte Url des Default-Repositories.
+ */
+QUrl MachineAuthenticationPage::defaultRepository() const
+{
+    // Default-Repositories ermitteln
+    const auto& settings = packageManagerCore()->settings();
+    const auto repos = settings.defaultRepositories();
+    // Abbruch, wenn kein Default-Repostory vorhanden ist:
+    if (repos.isEmpty()) {
+        qCritical() << "No default repository found! Cannot continue with authentication of token.";
+        return QUrl();
+    }
+    if (repos.size()>1) { qWarning() << "Why is there more than one repository? Found:" << repos.size(); }
+    return repos.begin()->url();
+}
+
 void MachineAuthenticationPage::setState(MachineAuthenticationPage::State s)
 {
     m_state = s;
-    emit event(Event::Entered);
+    emit throwEvent(Event::Entered);
 }
 
 } // namespace sqp

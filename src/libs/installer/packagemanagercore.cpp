@@ -392,7 +392,7 @@ using namespace QInstaller;
 
 
 Q_GLOBAL_STATIC(QMutex, globalModelMutex);
-static QFont *sVirtualComponentsFont = 0;
+static QFont *sVirtualComponentsFont = nullptr;
 Q_GLOBAL_STATIC(QMutex, globalVirtualComponentsFontMutex);
 
 static bool sNoForceInstallation = false;
@@ -422,9 +422,7 @@ void PackageManagerCore::writeMaintenanceTool()
             d->writeMaintenanceTool(d->m_performedOperationsOld + d->m_performedOperationsCurrentSession);
 
             bool gainedAdminRights = false;
-            QTemporaryFile tempAdminFile(d->targetDir()
-                + QLatin1String("/testjsfdjlkdsjflkdsjfldsjlfds") + QString::number(qrand() % 1000));
-            if (!tempAdminFile.open() || !tempAdminFile.isWritable()) {
+            if (!directoryWritable(d->targetDir())) {
                 gainAdminRights();
                 gainedAdminRights = true;
             }
@@ -665,6 +663,22 @@ int PackageManagerCore::downloadNeededArchives(double partProgressSize)
 }
 
 /*!
+    Returns \c true if an essential component update is found.
+*/
+bool PackageManagerCore::foundEssentialUpdate() const
+{
+    return d->m_foundEssentialUpdate;
+}
+
+/*!
+    Sets the value of \a foundEssentialUpdate, defaults to \c true.
+*/
+void PackageManagerCore::setFoundEssentialUpdate(bool foundEssentialUpdate)
+{
+    d->m_foundEssentialUpdate = foundEssentialUpdate;
+}
+
+/*!
     Returns \c true if a hard restart of the application is requested.
 */
 bool PackageManagerCore::needsHardRestart() const
@@ -697,7 +711,7 @@ void PackageManagerCore::rollBackInstallation()
     // reregister all the undo operations with the new size to the ProgressCoordinator
     foreach (Operation *const operation, d->m_performedOperationsCurrentSession) {
         QObject *const operationObject = dynamic_cast<QObject*> (operation);
-        if (operationObject != 0) {
+        if (operationObject != nullptr) {
             const QMetaObject* const mo = operationObject->metaObject();
             if (mo->indexOfSignal(QMetaObject::normalizedSignature("progressChanged(double)")) > -1) {
                 ProgressCoordinator::instance()->registerPartProgress(operationObject,
@@ -939,7 +953,7 @@ PackageManagerCore::~PackageManagerCore()
 
     QMutexLocker _(globalVirtualComponentsFontMutex());
     delete sVirtualComponentsFont;
-    sVirtualComponentsFont = 0;
+    sVirtualComponentsFont = nullptr;
 }
 
 /* static */
@@ -1095,8 +1109,7 @@ void PackageManagerCore::networkSettingsChanged()
 
     if (isMaintainer() ) {
         bool gainedAdminRights = false;
-        QTemporaryFile tempAdminFile(d->targetDir() + QStringLiteral("/XXXXXX"));
-        if (!tempAdminFile.open() || !tempAdminFile.isWritable()) {
+        if (!directoryWritable(d->targetDir())) {
             gainAdminRights();
             gainedAdminRights = true;
         }
@@ -1171,7 +1184,6 @@ bool PackageManagerCore::fetchCompressedPackagesTree()
     return fetchPackagesTree(packages, installedPackages);
 }
 
-
 /*!
     Checks for packages to install. Returns \c true if newer versions exist
     and they can be installed.
@@ -1221,17 +1233,17 @@ bool PackageManagerCore::fetchPackagesTree(const PackagesList &packages, const L
                     const QString name = update->data(scName).toString();
                     if (!installedPackages.contains(name)) {
                         success = false;
-                        break;  // unusual, the maintenance tool should always be available
+                        continue;  // unusual, the maintenance tool should always be available
                     }
 
                     const LocalPackage localPackage = installedPackages.value(name);
                     const QString updateVersion = update->data(scVersion).toString();
                     if (KDUpdater::compareVersion(updateVersion, localPackage.version) <= 0)
-                        break;  // remote version equals or is less than the installed maintenance tool
+                        continue;  // remote version equals or is less than the installed maintenance tool
 
                     const QDate updateDate = update->data(scReleaseDate).toDate();
                     if (localPackage.lastUpdateDate >= updateDate)
-                        break;  // remote release date equals or is less than the installed maintenance tool
+                        continue;  // remote release date equals or is less than the installed maintenance tool
 
                     success = false;
                     break;  // we found a newer version of the maintenance tool
@@ -1550,7 +1562,7 @@ Component *PackageManagerCore::componentByName(const QString &name) const
 Component *PackageManagerCore::componentByName(const QString &name, const QList<Component *> &components)
 {
     if (name.isEmpty())
-        return 0;
+        return nullptr;
 
     QString fixedVersion;
     QString fixedName;
@@ -1562,7 +1574,17 @@ Component *PackageManagerCore::componentByName(const QString &name, const QList<
             return component;
     }
 
-    return 0;
+    return nullptr;
+}
+
+bool PackageManagerCore::directoryWritable(const QString &path) const
+{
+    return d->directoryWritable(path);
+}
+
+bool PackageManagerCore::subdirectoriesWritable(const QString &path) const
+{
+    return d->subdirectoriesWritable(path);
 }
 
 /*!
@@ -2570,6 +2592,17 @@ bool PackageManagerCore::updateComponentData(struct Data &data, Component *compo
             return false;
         }
 
+        if (settings().allowUnstableComponents()) {
+            // Check if there are sha checksum mismatch. Component will still show in install tree
+            // but is unselectable.
+            foreach (const QString packageName, d->m_metadataJob.shaMismatchPackages()) {
+                if (packageName == component->name()) {
+                    QString errorString = QLatin1String("SHA mismatch detected for component ") + packageName;
+                    component->setUnstable(PackageManagerCore::UnstableError::ShaMismatch, errorString);
+                }
+            }
+        }
+
         component->setUninstalled();
         const QString localPath = component->localTempPath();
         if (isVerbose()) {
@@ -2723,7 +2756,7 @@ bool PackageManagerCore::fetchUpdaterPackages(const PackagesList &remotes, const
     data.components = &components;
     data.installedPackages = &locals;
 
-    bool foundEssentialUpdate = false;
+    setFoundEssentialUpdate(false);
     LocalPackagesHash installedPackages = locals;
     QStringList replaceMes;
 
@@ -2779,7 +2812,7 @@ bool PackageManagerCore::fetchUpdaterPackages(const PackagesList &remotes, const
                 continue;
 
             if (update->data(scEssential, scFalse).toString().toLower() == scTrue)
-                foundEssentialUpdate = true;
+                setFoundEssentialUpdate(true);
 
             // this is not a dependency, it is a real update
             components.insert(name, d->m_updaterComponentsDeps.takeLast());
@@ -2812,7 +2845,8 @@ bool PackageManagerCore::fetchUpdaterPackages(const PackagesList &remotes, const
                     return false;
 
                 component->loadComponentScript();
-                component->setCheckState(Qt::Checked);
+                if (!component->isUnstable())
+                    component->setCheckState(Qt::Checked);
             }
 
             // after everything is set up, check installed components
@@ -2824,11 +2858,12 @@ bool PackageManagerCore::fetchUpdaterPackages(const PackagesList &remotes, const
                 if (component->isInstalled()) {
                     // since we do not put them into the model, which would force a update of e.g. tri state
                     // components, we have to check all installed components ourselves
-                    component->setCheckState(Qt::Checked);
+                    if (!component->isUnstable())
+                        component->setCheckState(Qt::Checked);
                 }
             }
 
-            if (foundEssentialUpdate) {
+            if (foundEssentialUpdate()) {
                 foreach (QInstaller::Component *component, components) {
                     if (d->statusCanceledOrFailed())
                         return false;

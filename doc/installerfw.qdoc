@@ -266,6 +266,10 @@
                 elements that each contain the \c <Url> child element that specifies the URL to
                 access the repository. For more information,  see \l{Configuring Repositories}.
         \row
+            \li RepositoryCategories
+            \li Name of a category that can contain a list of \c <RemoteRepositories> child elements.
+                For more information,  see \l{Configuring Repository Categories}.
+        \row
             \li MaintenanceToolName
             \li Filename of the generated maintenance tool. Defaults to
                 \e maintenancetool. The platform-specific executable file extension is
@@ -324,6 +328,19 @@
         \row
             \li SupportsModify
             \li Set to \c false if the product does not support modifying an existing installation.
+         \row
+            \li SaveDefaultRepositories
+            \li Set to \c false if default repositories \c <RemoteRepositories> should not be saved to \e {MaintenanceToolName}.ini.
+                By default default repositories are saved. Not saving the repositories means than when you run  \e maintenancetool
+                there are no default repositories in use.
+         \row
+            \li AllowUnstableComponents
+            \li Set to \c true if other components are allowed to be installed
+                although there are unstable components. A component is \e unstable
+                if it is missing a dependency, has errors in scripts, and so on.
+                Unstable components are grayed in the component tree, and therefore
+                cannot be selected. By default, the value is \c false  which means
+                that the installation will be aborted if unstable components are found.
 
     \endtable
 
@@ -413,20 +430,13 @@
     component.userInterface( "MyPage" ).checkbox.checked = true;
     \endcode
 
-    \section2 Using Control Scripts to Add Pages
-
-    To register a custom page, use the installer::addWizardPage() method
-    and the object name set in the UI file (for example, \c "MyPage"). Then
-    call the \c{Dynamic${ObjectName}Callback()} function (for example,
-    \c {DynamicMyPageCallback()}):
+    You can also have a callback for the page that is added. To access it,
+    use the object name set in the UI file (for example, \c "MyPage"). Then
+    create the \c{Dynamic${ObjectName}Callback} function (for example,
+    \c {DynamicMyPageCallback}):
 
     \code
-    function Controller()
-    {
-        installer.addWizardPage(component, "MyPage", QInstaller.TargetDirectory)
-    }
-
-    Controller.prototype.DynamicMyPageCallback()
+    Component.prototype.DynamicMyPageCallback = function()
     {
         var page = gui.pageWidgetByObjectName("DynamicMyPage");
         page.myButton.click,
@@ -568,7 +578,10 @@
                 Translations may be specified similarly to DisplayName tag.
                 If a localization that matches the locale is not found and an untranslated
                 version exists, that one will be used. Otherwise no Description will be
-                shown for that locale.
+                shown for that locale. User clickable external links, for example a component's
+                homepage, can be included in component description by specifying a URL
+                address like this: {external-link}='https://www.qt.io/'. The URL must be valid
+                and contain a full path to the desired resource.
         \row
             \li Version
             \li Version number of the component in the following format:
@@ -1109,6 +1122,43 @@
     text. Authentication details not set here will be gotten at runtime using a dialog.
     The user can work around these settings at runtime.
 
+    \section1 Configuring Repository Categories
+
+    The \c <RepositoryCategory> element in the installer configuration file
+    (config.xml) can contain a list of several \c <RemoteRepositories> elements. Each \c <RemoteRepositories>
+    element within the \c <RepositoryCagetory> element is considered a category. Each catecory can have
+    a \c <DisplayName>, a \c <Tooltip>, a \c <Preselected> element and several \c <Repository> elements.
+    Repository categories are shown in the component selection page,
+    on the left side of the component selection widget:
+
+    \image ifw-repository-categories.png "Component selection Page"
+
+    By default, only repositories with no category are shown in the component selection widget. Checking one or
+    several repositories and pressing \uicontrol Fetch will update the widget to show content also
+    from the selected categorized repositories. Components in the repository
+    categories are marked as \e unstable meaning that you can install other
+    components although some components have missing dependencies, script
+    errors and so on. For more information about \e unstable components, see
+    \l {Summary of Configuration File Elements}.
+
+    Example of creating a repository category:
+
+    \code
+    <RepositoryCategories>
+        <RemoteRepositories>
+             <Displayname>Category 1</Displayname>
+             <Preselected>true</Preselected>
+             <Tooltip>Tooltip for category 1</Tooltip>
+             <Repository>
+                     <Url>http://www.example.com/packages</Url>
+                     <Enabled>1</Enabled>
+                     <Username>user</Username>
+                     <Password>password</Password>
+                     <DisplayName>Example repository</DisplayName>
+             </Repository>
+        </RemoteRepositories>
+    </RepositoryCategories>
+    \endcode
 
     \section1 Creating Installer Binaries
 

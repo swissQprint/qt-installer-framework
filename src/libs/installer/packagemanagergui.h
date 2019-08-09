@@ -57,7 +57,7 @@ namespace QInstaller {
 class PackageManagerCore;
 class PackageManagerPage;
 class PerformInstallationForm;
-
+class ComponentSelectionPagePrivate;
 
 // -- PackageManagerGui
 
@@ -106,6 +106,7 @@ public Q_SLOTS:
     void rejectWithoutPrompt();
     void showFinishedPage();
     void setModified(bool value);
+    void setMaxSize();
 
 protected Q_SLOTS:
     void wizardPageInsertionRequested(QWidget *widget, QInstaller::PackageManagerCore::WizardPage page);
@@ -315,14 +316,15 @@ public:
 
 protected:
     void entering();
+    void leaving();
     void showEvent(QShowEvent *event);
 
 private Q_SLOTS:
     void setModified(bool modified);
 
 private:
-    class Private;
-    Private *d;
+    friend class ComponentSelectionPagePrivate;
+    ComponentSelectionPagePrivate *const d;
 };
 
 

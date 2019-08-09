@@ -92,6 +92,9 @@ public:
     QString targetDir() const;
     QString registerPath();
 
+    bool directoryWritable(const QString &path) const;
+    bool subdirectoriesWritable(const QString &path) const;
+
     QString maintenanceToolName() const;
     QString installerBinaryPath() const;
 
@@ -247,6 +250,7 @@ private:
     bool m_updateSourcesAdded;
     qint64 m_magicBinaryMarker;
     bool m_componentsToInstallCalculated;
+    bool m_foundEssentialUpdate;
 
     mutable ScriptEngine *m_componentScriptEngine;
     mutable ScriptEngine *m_controlScriptEngine;

@@ -524,12 +524,12 @@ void Component::loadComponentScript(const QString &fileName)
                 Component *dependencyComponent = packageManagerCore()->componentByName
                         (PackageManagerCore::checkableName(dependency));
                 if (dependencyComponent && dependencyComponent->isUnstable())
-                    setUnstable();
+                    setUnstable(PackageManagerCore::UnstableError::DepencyToUnstable, QLatin1String("Dependent on unstable component"));
             }
         }
     } catch (const Error &error) {
         if (packageManagerCore()->settings().allowUnstableComponents()) {
-            setUnstable();
+            setUnstable(PackageManagerCore::UnstableError::ScriptLoadingFailed, error.message());
             qWarning() << error.message();
         } else {
             throw error;
@@ -1032,7 +1032,15 @@ Operation *Component::createOperation(const QString &operationName, const QStrin
 void Component::markComponentUnstable()
 {
     setValue(scDefault, scFalse);
-    setCheckState(Qt::Unchecked);
+    // Mark unstable component unchecked if:
+    // 1. Installer, so the unstable component won't be installed
+    // 2. Maintenancetool, when component is not installed.
+    // 3. Updater, we don't want to update unstable components
+    // Mark unstable component checked if:
+    // 1. Maintenancetool, if component is installed and
+    //    unstable so it won't get uninstalled.
+    if (d->m_core->isInstaller() || !isInstalled() || d->m_core->isUpdater())
+        setCheckState(Qt::Unchecked);
     setValue(scUnstable, scTrue);
 }
 
@@ -1335,7 +1343,7 @@ void Component::setUpdateAvailable(bool isUpdateAvailable)
 */
 bool Component::updateRequested()
 {
-    return d->m_updateIsAvailable && isSelected();
+    return d->m_updateIsAvailable && isSelected() && !isUnstable();
 }
 
 /*!
@@ -1372,7 +1380,7 @@ bool Component::isUnstable() const
     return scTrue == d->m_vars.value(scUnstable);
 }
 
-void Component::setUnstable()
+void Component::setUnstable(PackageManagerCore::UnstableError error, const QString &errorMessage)
 {
     QList<Component*> dependencies = d->m_core->dependees(this);
     // Mark this component unstable
@@ -1390,6 +1398,8 @@ void Component::setUnstable()
     foreach (Component *descendant, this->descendantComponents()) {
         descendant->markComponentUnstable();
     }
+    QMetaEnum metaEnum = QMetaEnum::fromType<PackageManagerCore::UnstableError>();
+    emit packageManagerCore()->unstableComponentFound(QLatin1String(metaEnum.valueToKey(error)), errorMessage, this->name());
 }
 
 /*!

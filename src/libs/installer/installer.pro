@@ -135,7 +135,9 @@ HEADERS += packagemanagercore.h \
     lib7z_list.h \
     sqp/installsettings.hpp \
     sqp/WelcomePage.hpp \
-    sqp/MachineAuthenticationPage.hpp
+    sqp/MachineAuthenticationPage.hpp \
+    repositorycategory.h \
+    componentselectionpage_p.h
 
 SOURCES += packagemanagercore.cpp \
     packagemanagercore_p.cpp \
@@ -213,7 +215,9 @@ SOURCES += packagemanagercore.cpp \
     packagesource.cpp \
     sqp/WelcomePage.cpp \
     sqp/MachineAuthenticationPage.cpp \
-    sqp/installsettings.cpp
+    sqp/installsettings.cpp \
+    repositorycategory.cpp \
+    componentselectionpage_p.cpp
 
 FORMS += proxycredentialsdialog.ui \
     serverauthenticationdialog.ui \

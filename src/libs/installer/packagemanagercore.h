@@ -65,6 +65,14 @@ public:
         Protocol::Mode mode = Protocol::Mode::Production);
     ~PackageManagerCore();
 
+    enum UnstableError {
+        DepencyToUnstable = 0,
+        ShaMismatch,
+        ScriptLoadingFailed,
+        MissingDependency
+    };
+     Q_ENUM(UnstableError)
+
     // status
     enum Status {
         Success = EXIT_SUCCESS,
@@ -114,6 +122,9 @@ public:
     static void setCreateLocalRepositoryFromBinary(bool create);
 
     static Component *componentByName(const QString &name, const QList<Component *> &components);
+
+    bool directoryWritable(const QString &path) const;
+    bool subdirectoriesWritable(const QString &path) const;
 
     bool fetchLocalPackagesTree();
     LocalPackagesHash localInstalledPackages();
@@ -260,6 +271,9 @@ public:
 
     int downloadNeededArchives(double partProgressSize);
 
+    bool foundEssentialUpdate() const;
+    void setFoundEssentialUpdate(bool foundEssentialUpdate = true);
+
     bool needsHardRestart() const;
     void setNeedsHardRestart(bool needsHardRestart = true);
     bool finishedWithSuccess() const;
@@ -325,6 +339,7 @@ Q_SIGNALS:
     void coreNetworkSettingsChanged();
 
     void guiObjectChanged(QObject *gui);
+    void unstableComponentFound(const QString &type, const QString &errorMessage, const QString &component);
 
 private:
     struct Data {

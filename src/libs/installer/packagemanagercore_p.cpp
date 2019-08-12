@@ -1052,7 +1052,9 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
 #endif
         // It's a bit odd to have only the magic in the data file, but this simplifies
         // other code a lot (since installers don't have any appended data either)
-        QTemporaryFile dataOut;
+
+        // SQP_MODIFICATION Bugfix bezüglich QTemporaryFile!
+        QFile dataOut(QDir::tempPath()+QLatin1String("/tmpfile_ifw_.")+QString::number(QDateTime::currentMSecsSinceEpoch()));
         QInstaller::openForWrite(&dataOut);
         QInstaller::appendInt64(&dataOut, 0);   // operations start
         QInstaller::appendInt64(&dataOut, 0);   // operations end
@@ -1060,7 +1062,6 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
         QInstaller::appendInt64(&dataOut, 4 * sizeof(qint64));   // data block size
         QInstaller::appendInt64(&dataOut, BinaryContent::MagicUninstallerMarker);
         QInstaller::appendInt64(&dataOut, BinaryContent::MagicCookie);
-
         {
             QFile dummy(resourcePath.filePath(QLatin1String("installer.dat")));
             if (dummy.exists() && !dummy.remove()) {
@@ -1068,14 +1069,11 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
                     dummy.errorString()));
             }
         }
-
         if (!dataOut.rename(resourcePath.filePath(QLatin1String("installer.dat")))) {
-            throw Error(tr("Cannot write maintenance tool data to %1: %2").arg(out.fileName(),
-                out.errorString()));
+            throw Error(tr("Cannot write maintenance tool data to %1: %2").arg(dataOut.fileName(), dataOut.errorString()));
         }
-        dataOut.setAutoRemove(false);
-        dataOut.setPermissions(dataOut.permissions() | QFile::WriteUser | QFile::ReadGroup
-            | QFile::ReadOther);
+        //dataOut.setAutoRemove(false);
+        dataOut.setPermissions(dataOut.permissions() | QFile::WriteUser | QFile::ReadGroup | QFile::ReadOther);
     }
 
     {

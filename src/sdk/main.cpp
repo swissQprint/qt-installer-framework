@@ -32,6 +32,7 @@
 #include "installerbase.h"
 #include "sdkapp.h"
 #include "updatechecker.h"
+#include "build_info.h"
 
 #include <errors.h>
 #include <selfrestarter.h>
@@ -44,13 +45,13 @@
 
 #include <iostream>
 
-#if defined(Q_OS_OSX) or defined(Q_OS_UNIX)
+#if defined(Q_OS_OSX) || defined(Q_OS_UNIX)
 #  include <unistd.h>
 #  include <sys/types.h>
 #endif
 
 #define QUOTE_(x) #x
-#define QUOTE(x) QUOTE_(x)
+#define QUOTE(x) QUOTE_(#x)
 #define VERSION "IFW Version: " QUOTE(IFW_VERSION_STR) ", built with Qt " QT_VERSION_STR "."
 #define BUILDDATE "Build date: " __DATE__
 #define SHA "Installer Framework SHA1: " QUOTE(_GIT_SHA1_)
@@ -101,7 +102,7 @@ int main(int argc, char *argv[])
 
         if (parser.isSet(QLatin1String(CommandLineOptions::Version))) {
             std::cout << VERSION << std::endl << BUILDDATE << std::endl << SHA << std::endl;
-            std::cout << "SQP: " << SQP_IFW_VERSION_STRING << " (" << SQP_IFW_RELEASE_STAGE_NAME << ")" << std::endl;
+            std::cout << "SQP: " << SQP_IFW_VERSION_STRING  << std::endl;
             const QDateTime dateTime = QDateTime::fromString(QLatin1String(PLACEHOLDER),
                 QLatin1String("yyyy-MM-dd - HH:mm:ss"));
             if (dateTime.isValid())

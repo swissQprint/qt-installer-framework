@@ -4,16 +4,6 @@ TARGET = installerbase
 
 include(../../installerfw.pri)
 
-DEFINES  += SQP_IFW_VERSION_MAJOR=$$SQP_VERSION_MAJOR
-DEFINES  += SQP_IFW_VERSION_MINOR=$$SQP_VERSION_MINOR
-DEFINES  += SQP_IFW_VERSION_PATCH=$$SQP_VERSION_PATCH
-DEFINES  += SQP_IFW_VERSION_TWEAK=$$SQP_VERSION_TWEAK
-DEFINES  += SQP_IFW_VERSION_STRING=\\\"$$SQP_VERSION_STRING\\\"
-DEFINES  += SQP_IFW_RELEASE_STAGE_NAME=\\\"$$SQP_RELEASE_STAGE_NAME\\\"
-
-message(Qt Installer Version: $$IFW_VERSION_STR)
-message(SQP Installer Version: $$SQP_VERSION_STRING)
-
 !isEmpty(SQUISH_PATH) {
     DEFINES += ENABLE_SQUISH
     include($$SQUISH_PATH/qtbuiltinhook.pri)
@@ -103,7 +93,8 @@ HEADERS += \
            updatechecker.h \
            installerbase.h \
            constants.h \
-           commandlineparser.h 
+           commandlineparser.h \ 
+    build_info.h
 
 SOURCES = \
           main.cpp \
@@ -123,10 +114,3 @@ win32 {
 }
 
 macx:include(../../no_app_bundle.pri)
-
-target.path = $$SQP_IFW_INSTALL_DIR
-INSTALLS += target
-message(Installation to $$target.path)
-
-#target.path = $$[QT_INSTALL_BINS]
-#INSTALLS += target

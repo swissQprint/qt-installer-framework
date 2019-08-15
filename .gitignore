@@ -90,3 +90,5 @@ doc-build
 .metadata
 
 /src/sdk/translations/untranslated.ts
+
+gitinfo.json

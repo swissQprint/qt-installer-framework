@@ -19,5 +19,5 @@ package-win64-release:
     - set PATH=%PATH%;%Qt_DIR%\bin
   script:
     - conan remove sqpQtIFW -f
-    - conan create . sqp/release -s build_type=Release --update
+    - conan create . sqp/release -s build_type=Release
     - conan upload sqpQtIFW --all -r=inhouse -c

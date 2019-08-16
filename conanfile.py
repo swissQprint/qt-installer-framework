@@ -71,25 +71,7 @@ class SQPQtIFWConan(ConanFile):
             self.run("{0} && set CL=/MP && nmake".format(vcvars)) # 'CL=/MP' -> Parallelbuild
 
     def package(self):
-        self.copy("*.exe", dst="", src="bin", keep_path=False)
+        self.copy("*.exe", src="bin", keep_path=False)
 
     def deploy(self):
-        print("Deploy ...")
-        # if self.settings.os == "Windows":
-            # self.copy("*", dst=".", src="bin")
-            # self.copy("*.qm", dst="translations", src="translations")
-            # self.copy_deps("*.dll", dst=".", src="bin")
-            # # QT
-            # try:
-                # qtdir = os.environ['Qt5_DIR']
-            # except:
-                # raise Exception("Qt5_DIR variable not set")
-            # windeploy = os.path.join(qtdir, "bin/windeployqt.exe")
-            # output_files = fnmatch.filter(os.listdir(self.install_folder), '*.exe')
-            # for file in output_files:
-                # os.system(windeploy + " --no-system-d3d-compiler --no-webkit2 --no-opengl-sw " + file)
-            # output_files = fnmatch.filter(os.listdir(self.install_folder), '*.dll')
-            # for file in output_files:
-                # os.system(windeploy + " --no-system-d3d-compiler --no-webkit2 --no-opengl-sw " + file)
-        # else:
-            # self.copy("*.so", dst="lib", src="lib")
+        self.copy("*.exe")

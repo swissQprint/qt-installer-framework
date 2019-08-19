@@ -1,7 +1,7 @@
 variables:
   PROJECTNAME: qtifw
   Qt_DIR: C:\Qt\static\5.10.1
-  Qt_Tools: C:\Qt\Tools\QtCreator\bin
+  Qt_Tools: C:\Qt\Tools\QtCreator
 
 stages:
   - package

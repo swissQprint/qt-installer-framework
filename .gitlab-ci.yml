@@ -1,6 +1,7 @@
 variables:
   PROJECTNAME: qtifw
   Qt_DIR: C:\Qt\static\5.10.1
+  Qt_Tools: C:\Qt\Tools\QtCreator\bin
 
 stages:
   - package
@@ -16,7 +17,8 @@ package-win64-release:
   only:
     - tags
   before_script:
-    - set PATH=%PATH%;%Qt_DIR%\bin
+    - set PATH=%Qt_DIR%\bin;%PATH% # qmake
+    - set PATH=%Qt_Tools%\bin;%PATH% # jom
   script:
     - conan remove sqpQtIFW -f
     - conan create . sqp/release -s build_type=Release

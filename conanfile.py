@@ -74,10 +74,13 @@ class SQPQtIFWConan(ConanFile):
         env_build = VisualStudioBuildEnvironment(self)
         with tools.environment_append(env_build.vars):
             vcvars = tools.vcvars_command(self.settings)
+            # Für das Ausführen nachfolgender Tools werden die entsprechenden Umgebungs-
+            # variabeln benötigt. Im CI/CD wird die im yml File gesteuert. Es ist darauf zu
+            # achten, dass qmake von einem statisch kompilierten Qt stammt!
             # prepare with qmake:
-            self.run("{0} && C:\\Qt\\static\\5.10.1\\bin\\qmake.exe installerfw.pro CONFIG+=release -spec win32-msvc".format(vcvars))
+            self.run("{0} && qmake.exe installerfw.pro CONFIG+=release -spec win32-msvc".format(vcvars))
             # build with jom from qt tools:
-            self.run("{0} && C:\\Qt\\Tools\\QtCreator\\bin\\jom.exe /J 10".format(vcvars))
+            self.run("{0} && jom.exe /J 10".format(vcvars))
             # or with nmake:
             #self.run("{0} && set CL=/MP && nmake".format(vcvars)) # 'CL=/MP' -> Parallelbuild
         self.remove_debug_directory()

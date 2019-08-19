@@ -1,5 +1,5 @@
 from conans import ConanFile, python_requires, VisualStudioBuildEnvironment, tools
-import os, json
+import os, json, shutil
 
 sqp = python_requires("sqpBuildTools/[~0.3]@sqp/testing")
 
@@ -15,7 +15,7 @@ def read_git_information():
             return { "author" : author,
                      "branch" : branch,
                      "commit_hash" : commit_hash }
-
+                     
 class SQPQtIFWConan(ConanFile):
     name = "sqpQtIFW"
     version = sqp.get_version()
@@ -25,22 +25,27 @@ class SQPQtIFWConan(ConanFile):
     url = "www.swissqprint.com"
     description = "Basic binary for building Qt installers."
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False]}
-    default_options = "shared=False"
     build_requires = (
         ("sqpBuildTools/[~0.3]@sqp/testing")
     )
     exports_sources = "src/*", "installerfw.pri", "installerfw.pro"
     exports = "gitinfo.json"
     
-    def package_info(self):
-        # Wir müssen sicherstellen, dass die korrekte Variante von QMake
-        # für den Bau des Installer Frameworks verwendet wird. Es muss ein
-        # qmake sein, das Qt für das statische Linken anbietet.
-        qt = "C:/Qt/static/5.10.1"
-        self.env_info.qtdir = qt
-        self.env_info.path.append(os.path.join(qt,"bin"))
-
+    def get_namespace(self):
+        return "{0}/{1}".format(self.user,self.channel)
+        
+    def remove_debug_directory(self):
+        '''
+          Wir entfernen das Directory, das vom Build-Tool generiert wird.
+          Dieses Directory wird nur angelegt, wenn wir den Term "release" im
+          Build-Pfad besitzen. Ansonsten entstehen keine Probleme.
+        '''
+        ns = self.get_namespace()
+        unwanted_dir = "../../../debug"
+        if "release" in ns.lower() and os.path.exists(unwanted_dir):
+            print("Remove "+unwanted_dir)
+            shutil.rmtree(unwanted_dir)
+    
     def build(self):
         # Hiermit bauen wir das Basistool für den Installer. Aber nur für
         # Release bzw. für Windows Visual Studio Compiler.
@@ -48,6 +53,8 @@ class SQPQtIFWConan(ConanFile):
             raise Exception("Cannot build installer framework with build type {0}!".format(self.settings.build_type))
         if self.settings.compiler != "Visual Studio":
             raise Exception("Cannot build on platform {0} and compiler {1}!".format(self.settings.os,self.settings.compiler))
+        self.remove_debug_directory()
+        
         # Jetzt schreiben wir die Versions- und Git-Informationen in ein .h File. Dieses
         # liegt unter src/sdk und nennt sich build_info.h. Leider war es in nützlicher Frist nicht anders möglich.
         git_infos = read_git_information()
@@ -67,8 +74,13 @@ class SQPQtIFWConan(ConanFile):
         env_build = VisualStudioBuildEnvironment(self)
         with tools.environment_append(env_build.vars):
             vcvars = tools.vcvars_command(self.settings)
-            self.run("{0} && qmake installerfw.pro CONFIG+=Release \"DEFINES+=SQP_IFW_VERSION_STRING=\\\\\\\"{1}\\\\\\\"\" -spec win32-msvc".format(vcvars,"v"+self.version))
-            self.run("{0} && set CL=/MP && nmake".format(vcvars)) # 'CL=/MP' -> Parallelbuild
+            # prepare with qmake:
+            self.run("{0} && C:\\Qt\\static\\5.10.1\\bin\\qmake.exe installerfw.pro CONFIG+=release -spec win32-msvc".format(vcvars))
+            # build with jom from qt tools:
+            self.run("{0} && C:\\Qt\\Tools\\QtCreator\\bin\\jom.exe /J 10".format(vcvars))
+            # or with nmake:
+            #self.run("{0} && set CL=/MP && nmake".format(vcvars)) # 'CL=/MP' -> Parallelbuild
+        self.remove_debug_directory()
 
     def package(self):
         self.copy("*.exe", src="bin", keep_path=False)

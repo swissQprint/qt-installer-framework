@@ -590,7 +590,7 @@ void PackageManagerCorePrivate::initialize(const QHash<QString, QString> &params
 #endif
 
     if (!m_core->isInstaller()) {
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
         readMaintenanceConfigFiles(QCoreApplication::applicationDirPath() + QLatin1String("/../../.."));
 #else
         readMaintenanceConfigFiles(QCoreApplication::applicationDirPath());
@@ -718,7 +718,7 @@ Operation *PackageManagerCorePrivate::takeOwnedOperation(Operation *operation)
 QString PackageManagerCorePrivate::maintenanceToolName() const
 {
     QString filename = m_data.settings().maintenanceToolName();
-#if defined(Q_OS_OSX)
+#if defined(Q_OS_MACOS)
     if (QInstaller::isInBundle(QCoreApplication::applicationDirPath()))
         filename += QLatin1String(".app/Contents/MacOS/") + filename;
 #elif defined(Q_OS_WIN)
@@ -1034,7 +1034,7 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
     qDebug() << "Writing maintenance tool:" << maintenanceToolRenamedName;
     ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(tr("Writing maintenance tool."));
 
-    QTemporaryFile out;
+    QFile out(generateTemporaryFileName());
     QInstaller::openForWrite(&out); // throws an exception in case of error
 
     if (!input->seek(0))
@@ -1044,7 +1044,7 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
     if (writeBinaryLayout) {
 
         QDir resourcePath(QFileInfo(maintenanceToolRenamedName).dir());
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
         if (!resourcePath.path().endsWith(QLatin1String("Contents/MacOS")))
             throw Error(tr("Maintenance tool is not a bundle"));
         resourcePath.cdUp();
@@ -1052,9 +1052,7 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
 #endif
         // It's a bit odd to have only the magic in the data file, but this simplifies
         // other code a lot (since installers don't have any appended data either)
-
-        // SQP_MODIFICATION Bugfix bezüglich QTemporaryFile!
-        QFile dataOut(QDir::tempPath()+QLatin1String("/tmpfile_ifw_.")+QString::number(QDateTime::currentMSecsSinceEpoch()));
+        QFile dataOut(generateTemporaryFileName());
         QInstaller::openForWrite(&dataOut);
         QInstaller::appendInt64(&dataOut, 0);   // operations start
         QInstaller::appendInt64(&dataOut, 0);   // operations end
@@ -1070,10 +1068,11 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
             }
         }
         if (!dataOut.rename(resourcePath.filePath(QLatin1String("installer.dat")))) {
-            throw Error(tr("Cannot write maintenance tool data to %1: %2").arg(dataOut.fileName(), dataOut.errorString()));
+            throw Error(tr("Cannot write maintenance tool data to %1: %2").arg(dataOut.fileName(),
+                dataOut.errorString()));
         }
-        //dataOut.setAutoRemove(false);
-        dataOut.setPermissions(dataOut.permissions() | QFile::WriteUser | QFile::ReadGroup | QFile::ReadOther);
+        dataOut.setPermissions(dataOut.permissions() | QFile::WriteUser | QFile::ReadGroup
+            | QFile::ReadOther);
     }
 
     {
@@ -1084,21 +1083,10 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
         }
     }
 
-#if 0
     if (!out.copy(maintenanceToolRenamedName)) {
         throw Error(tr("Cannot write maintenance tool to \"%1\": %2").arg(maintenanceToolRenamedName,
             out.errorString()));
     }
-#else
-    // Fixed like mentioned in QTIFW-1110
-    // TODO: kbi SQP_MODIFICATION documentation
-    out.flush();
-    out.close();
-    QFile src(out.fileName());
-    if (!src.copy(maintenanceToolRenamedName)) {
-        qDebug() << out.errorString();
-    }
-#endif
 
     QFile mt(maintenanceToolRenamedName);
     if (mt.setPermissions(out.permissions() | QFile::WriteUser | QFile::ReadGroup | QFile::ReadOther
@@ -1106,6 +1094,11 @@ void PackageManagerCorePrivate::writeMaintenanceToolBinary(QFile *const input, q
         qDebug() << "Wrote permissions for maintenance tool.";
     } else {
         qDebug() << "Failed to write permissions for maintenance tool.";
+    }
+
+    if (out.exists() && !out.remove()) {
+        qWarning() << tr("Cannot remove temporary data file \"%1\": %2")
+            .arg(out.fileName(), out.errorString());
     }
 }
 
@@ -1181,7 +1174,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
 
     const QString targetAppDirPath = QFileInfo(maintenanceToolName()).path();
     if (!QDir().exists(targetAppDirPath)) {
-        // create the directory containing the maintenance tool (like a bundle structure on OS X...)
+        // create the directory containing the maintenance tool (like a bundle structure on macOS...)
         Operation *op = createOwnedOperation(QLatin1String("Mkdir"));
         op->setArguments(QStringList() << targetAppDirPath);
         performOperationThreaded(op, Backup);
@@ -1189,7 +1182,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
         performedOperations.append(takeOwnedOperation(op));
     }
 
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
     // if it is a bundle, we need some stuff in it...
     const QString sourceAppDirPath = QCoreApplication::applicationDirPath();
     if (isInstaller() && QInstaller::isInBundle(sourceAppDirPath)) {
@@ -1349,7 +1342,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
             // On Mac data is always in a separate file so that the binary can be signed.
             // On other platforms data is in separate file only after install so that the
             // maintenancetool sign does not break.
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
             QDir dataPath(QFileInfo(binaryName).dir());
             dataPath.cdUp();
             dataPath.cd(QLatin1String("Resources"));
@@ -1364,7 +1357,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
                 newBinaryWritten = true;
                 QFile tmp(binaryName);
                 QInstaller::openForRead(&tmp);
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
                 writeMaintenanceToolBinary(&tmp, tmp.size(), true);
 #else
                 writeMaintenanceToolBinary(&tmp, layout.endOfBinaryContent - layout.binaryContentSize, true);
@@ -1376,7 +1369,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
         m_core->setValue(QLatin1String("installedOperationAreSorted"), QLatin1String("true"));
 
         try {
-            QTemporaryFile file;
+            QFile file(generateTemporaryFileName());
             QInstaller::openForWrite(&file);
             writeMaintenanceToolBinaryData(&file, &input, performedOperations, layout);
             QInstaller::appendInt64(&file, BinaryContent::MagicCookieDat);
@@ -1387,24 +1380,12 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
                     dummy.errorString()));
             }
 
-#if 0
             if (!file.rename(dataFile + QLatin1String(".new"))) {
                 throw Error(tr("Cannot write maintenance tool binary data to %1: %2")
                     .arg(file.fileName(), file.errorString()));
             }
-            file.setAutoRemove(false);
             file.setPermissions(file.permissions() | QFile::WriteUser | QFile::ReadGroup
                 | QFile::ReadOther);
-#else
-            // Solved as mentioned in bug QTIFW-1110
-            // TODO: kbi SQP_MODIFICATION documentation
-            file.flush();
-            QFile tmpfr(file.fileName());
-            if (!tmpfr.copy(dataFile + QLatin1String(".new")))
-                throw Error(tr("Cannot write maintenance tool binary data to %1: %2").arg(file.fileName(), file.errorString()));
-            QFile tmpfr2(dataFile + QLatin1String(".new"));
-            tmpfr2.setPermissions(file.permissions() | QFile::WriteUser | QFile::ReadGroup | QFile::ReadOther);
-#endif
         } catch (const Error &/*error*/) {
             if (!newBinaryWritten) {
                 newBinaryWritten = true;
@@ -1574,8 +1555,8 @@ bool PackageManagerCorePrivate::runInstaller()
             Operation *createRepo = createOwnedOperation(QLatin1String("CreateLocalRepository"));
             if (createRepo) {
                 QString binaryFile = QCoreApplication::applicationFilePath();
-#ifdef Q_OS_OSX
-                // The installer binary on OSX does not contain the binary content, it's put into
+#ifdef Q_OS_MACOS
+                // The installer binary on macOS does not contain the binary content, it's put into
                 // the resources folder as separate file. Adjust the actual binary path. No error
                 // checking here since we will fail later while reading the binary content.
                 QDir resourcePath(QFileInfo(binaryFile).dir());
@@ -2048,7 +2029,7 @@ void PackageManagerCorePrivate::deleteMaintenanceTool()
     // every other platform has no problem if we just delete ourselves now
     QFile maintenanceTool(QFileInfo(installerBinaryPath()).absoluteFilePath());
     maintenanceTool.remove();
-# ifdef Q_OS_OSX
+# ifdef Q_OS_MACOS
     if (QInstaller::isInBundle(installerBinaryPath())) {
         const QLatin1String cdUp("/../../..");
         removeDirectoryThreaded(QFileInfo(installerBinaryPath() + cdUp).absoluteFilePath());

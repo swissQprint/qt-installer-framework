@@ -28,6 +28,7 @@
 ****************************************************************************/
 
 #include "localpackagehub.h"
+#include "fileutils.h"
 #include "globals.h"
 #include "constants.h"
 
@@ -310,7 +311,8 @@ void LocalPackageHub::refresh()
     \a virtualComp,
     \a uncompressedSize,
     \a inheritVersionFrom,
-    and \a checkable for the package.
+    \a checkable,
+    and \a expandedByDefault for the package.
 */
 void LocalPackageHub::addPackage(const QString &name,
                                  const QString &version,
@@ -431,6 +433,11 @@ void LocalPackageHub::writeToDisk()
 
         file.write(doc.toByteArray(4));
         file.close();
+
+        // Write permissions for installation information file
+        QInstaller::setDefaultFilePermissions(
+            &file, DefaultFilePermissions::NonExecutable);
+
         d->modified = false;
     }
 }

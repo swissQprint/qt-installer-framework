@@ -65,14 +65,6 @@ public:
         Protocol::Mode mode = Protocol::Mode::Production);
     ~PackageManagerCore();
 
-    enum UnstableError {
-        DepencyToUnstable = 0,
-        ShaMismatch,
-        ScriptLoadingFailed,
-        MissingDependency
-    };
-     Q_ENUM(UnstableError)
-
     // status
     enum Status {
         Success = EXIT_SUCCESS,
@@ -124,7 +116,6 @@ public:
     static Component *componentByName(const QString &name, const QList<Component *> &components);
 
     bool directoryWritable(const QString &path) const;
-    bool subdirectoriesWritable(const QString &path) const;
 
     bool fetchLocalPackagesTree();
     LocalPackagesHash localInstalledPackages();

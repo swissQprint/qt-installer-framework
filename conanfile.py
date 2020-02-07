@@ -28,7 +28,7 @@ class SQPQtIFWConan(ConanFile):
     build_requires = (
         ("sqpBuildTools/[~0.3]@sqp/testing")
     )
-    exports_sources = "src/*", "installerfw.pri", "installerfw.pro"
+    exports_sources = "src/*", "installerfw.pri", "installerfw.pro", "tools/*"
     exports = "gitinfo.json"
     
     def get_namespace(self):
@@ -79,14 +79,25 @@ class SQPQtIFWConan(ConanFile):
             # achten, dass qmake von einem statisch kompilierten Qt stammt!
             # prepare with qmake:
             self.run("{0} && qmake.exe installerfw.pro CONFIG+=release -spec win32-msvc".format(vcvars))
-            # build with jom from qt tools:
             self.run("{0} && jom.exe /J 10".format(vcvars))
-            # or with nmake:
             #self.run("{0} && set CL=/MP && nmake".format(vcvars)) # 'CL=/MP' -> Parallelbuild
         self.remove_debug_directory()
 
     def package(self):
-        self.copy("*.exe", src="bin", keep_path=False)
+        # Wir paketieren alle Binaries!
+        # Darunter ist installerbase.exe und alle für das Framework notwendigen Hilfstools.
+        self.copy("*.exe", dst="bin", src="bin")
+        
+    def package_info(self):
+        # Diese Funktion hilft einem anderen Paket, die Tools direkt verwenden zu können.
+        # Verwendet ein anderes Paket dieses als Buildabhängigkeit, so kann über self.run()
+        # eines der paketierten Tools verwendet werden.
+        self.env_info.path.append(os.path.join(self.package_folder, "bin"))
 
     def deploy(self):
-        self.copy("*.exe")
+        # Beim Deployment müssen wir darauf achten, dass nur das Tool installerbase verteilt
+        # wird. Die anderen dienen nur als Hilfstools für den Bau des Installers (build_requires).
+        if self.settings.os == "Windows":
+            self.copy("installerbase.exe", dst=".", src="bin")
+        else:
+            self.copy("installerbase", dst=".", src="bin")

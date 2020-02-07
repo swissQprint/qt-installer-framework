@@ -1,5 +1,8 @@
 TEMPLATE = subdirs
 SUBDIRS += src
+SUBDIRS += tools
+tools.depends = src
+
 requires(!cross_compile)
 include (installerfw.pri)
 

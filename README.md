@@ -2,11 +2,18 @@ The Qt Installer Framework provides a set of tools and utilities to create
 installers for the supported desktop Qt platforms: Linux, Microsoft Windows, and
 macOS.
 
-# swissQprint
+# swissQprint AG
 
 We forked the project to make some small adjustments and make it conanized.
 
-## build
+## Conan
+
+The conanfile.py builds the installer framework from source with the qmake and
+visual studio compiler environment.
+The package is called `sqpQtIFW`. If there is a tag, we get a package called
+`sqpQtIFW/3.2.1-rc1@sqp/release` for example.
+
+### Build
 
 We need a qmake from a statically built Qt!
 
@@ -20,7 +27,29 @@ We need a qmake from a statically built Qt!
 Hint: I needed to define the user PATH variable manually. Could not find conan anymore.
 Be careful not to forget to remove all Makefiles. Otherwise they will be copied to the
 conan directory and mess up the build. They need to be generated again with the right
-paths to canan package.
+paths to conan package.
+
+### Package
+
+We pack all the generated binaries to the conan package. That means it contains the
+following tools:
+
+*  installerbase.exe
+*  repogen.exe
+*  binarycreator.exe
+*  archivegen.exe
+*  devtool.exe
+
+All except installerbase.exe are helper tools. They are only required in building the
+installer. installerbase.exe is the core of the so called maintenancetool. It is the 
+basic component of the installer.
+
+This is why the conan package can be used as build-requirement. It provides a package_info
+for using the above helper tools in another conan package without deploying them.
+
+### Deployment
+
+We only need the installerbase.exe to be deployed.
 
 ## Log
 

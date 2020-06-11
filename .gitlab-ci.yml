@@ -1,6 +1,6 @@
 variables:
   PROJECTNAME: qtifw
-  Qt_DIR: C:\Qt\static\5.10.1
+  Qt_DIR: C:\Qt\static\5.15
   Qt_TOOLS: C:\Qt\Tools\QtCreator
 
 stages:
@@ -13,7 +13,7 @@ package-win64-release:
     - msvc14
     - windows
     - x86_64
-    - qt5.10-static
+    - qt5.15-static
   only:
     - tags
   before_script:

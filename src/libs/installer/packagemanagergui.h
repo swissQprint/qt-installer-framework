@@ -80,6 +80,7 @@ public:
 
     QString defaultButtonText(int wizardButton) const;
     void clickButton(int wizardButton, int delayInMs = 0);
+    void clickButton(const QString &objectName, int delayInMs = 0) const;
     bool isButtonEnabled(int wizardButton);
 
     void showSettingsButton(bool show);
@@ -237,6 +238,8 @@ private Q_SLOTS:
     void setPackageManager(bool value);
 
 private:
+    void initializePage();
+
     void entering();
     void leaving();
 
@@ -352,8 +355,6 @@ private Q_SLOTS:
 
 private:
     QString targetDirWarning() const;
-    bool askQuestion(const QString &identifier, const QString &message);
-    bool failWithError(const QString &identifier, const QString &message);
 
 private:
     QLineEdit *m_lineEdit;

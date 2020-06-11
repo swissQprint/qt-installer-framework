@@ -24,6 +24,7 @@ HEADERS += productkeycheck.h
     include($$PRODUCTKEYCHECK_PRI_FILE)
 } else {
     SOURCES += productkeycheck.cpp
+    SOURCES += commandlineparser_p.cpp
 }
 
 DESTDIR = $$IFW_LIB_PATH
@@ -137,7 +138,9 @@ HEADERS += packagemanagercore.h \
     sqp/WelcomePage.hpp \
     sqp/MachineAuthenticationPage.hpp \
     repositorycategory.h \
-    componentselectionpage_p.h
+    componentselectionpage_p.h \
+    commandlineparser.h \
+    commandlineparser_p.h
 
 SOURCES += packagemanagercore.cpp \
     packagemanagercore_p.cpp \
@@ -217,7 +220,8 @@ SOURCES += packagemanagercore.cpp \
     sqp/MachineAuthenticationPage.cpp \
     sqp/installsettings.cpp \
     repositorycategory.cpp \
-    componentselectionpage_p.cpp
+    componentselectionpage_p.cpp \
+    commandlineparser.cpp
 
 FORMS += proxycredentialsdialog.ui \
     serverauthenticationdialog.ui \

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -11,8 +11,8 @@
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Free Documentation License Usage
 ** Alternatively, this file may be used under the terms of the GNU Free
@@ -20,7 +20,7 @@
 ** Foundation and appearing in the file included in the packaging of
 ** this file. Please review the following information to ensure
 ** the GNU Free Documentation License version 1.3 requirements
-** will be met: http://www.gnu.org/copyleft/fdl.html.
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
@@ -324,6 +324,31 @@
 */
 
 /*!
+    \qmlmethod void installer::setAutoAcceptLicenses()
+
+    Automatically accepts all license agreements required to install the selected components. This
+    can be used to skip the command line license acceptance query. The names of the accepted
+    individual licenses are still printed to a console.
+*/
+
+/*!
+   \qmlmethod void installer::setFileDialogAutomaticAnswer(string identifier, string &value)
+
+    Automatically sets the existing directory or filename \a value to QFileDialog with the ID
+   \a identifier.
+
+   \sa removeFileDialogAutomaticAnswer
+*/
+
+/*!
+   \qmlmethod void installer::removeFileDialogAutomaticAnswer(string identifier)
+
+   Removes the automatic answer from QFileDialog with the ID \a identifier.
+
+   \sa setFileDialogAutomaticAnswer
+*/
+
+/*!
    \qmlmethod float installer::requiredDiskSpace()
 
    Returns the additional estimated amount of disk space in bytes required after installation.
@@ -355,6 +380,20 @@
 
     \note If the file does not exist or an error occurs while reading the file, an
      empty string is returned.
+*/
+
+/*!
+    \qmlmethod string installer::readConsoleLine(string title, int maxlen)
+
+    Prints \a title to a console and reads console input. Function halts the
+    installer and waits for user input. Function returns a line which user has
+    typed into the console. The maximum allowed line length is set to
+    \a maxlen. If the stream contains lines longer than this, then the line is
+    split after \a maxlen characters. If \a maxlen is 0, the line can be of
+    any length.
+
+    \note This function can only be called when installing from a command line
+    instance without GUI.
 */
 
 /*!
@@ -682,6 +721,14 @@
 */
 
 /*!
+    \qmlmethod void installer::setInstaller()
+
+    Forces an installer context.
+
+    \sa isInstaller, setUpdater, setUninstaller, setPackageManager
+*/
+
+/*!
     \qmlmethod boolean installer::isInstaller()
 
     Returns \c true if the application, binary, or executable is executed in
@@ -701,7 +748,7 @@
 
     Forces an uninstaller context.
 
-    \sa isUninstaller, setUpdater, setPackageManager
+    \sa isUninstaller, setUpdater, setPackageManager, setInstaller
 */
 
 /*!
@@ -718,7 +765,7 @@
 
     Forces an updater context.
 
-    \sa isUpdater, setUninstaller, setPackageManager
+    \sa isUpdater, setUninstaller, setPackageManager, setInstaller
 */
 
 /*!
@@ -743,6 +790,12 @@
     package manager mode.
 
     \sa setPackageManager, isInstaller, isUninstaller, isUpdater
+*/
+
+/*!
+    \qmlmethod boolean installer::isUserSetBinaryMarker()
+
+    Returns \c true if the magic binary marker has been set by user.
 */
 
 /*!

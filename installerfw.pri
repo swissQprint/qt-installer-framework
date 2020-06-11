@@ -3,9 +3,9 @@
 }
 IFW_PRI_INCLUDED = 1
 
-IFW_VERSION_STR = 3.2.3
-IFW_VERSION = 0x030203
-IFW_VERSION_WIN32 = 3,2,3,0
+IFW_VERSION_STR = 4.0.0
+IFW_VERSION = 0x040000
+IFW_VERSION_WIN32 = 4,0,0,0
 
 IFW_VERSION_STR_WIN32 = $$IFW_VERSION_STR\0
 
@@ -64,7 +64,9 @@ isEmpty(IFW_BUILD_TREE) {
 
 IFW_SOURCE_TREE = $$PWD
 IFW_APP_PATH = $$IFW_BUILD_TREE/bin
-IFW_LIB_PATH = $$IFW_BUILD_TREE/lib
+isEmpty(IFW_LIB_PATH) {
+    IFW_LIB_PATH = $$IFW_BUILD_TREE/lib
+}
 
 RCC = $$toNativeSeparators($$cleanPath($$[QT_INSTALL_BINS]/rcc))
 LRELEASE = $$toNativeSeparators($$cleanPath($$[QT_INSTALL_BINS]/lrelease))
@@ -114,6 +116,7 @@ CONFIG(static, static|shared) {
     QT += concurrent network qml xml
 }
 CONFIG += depend_includepath no_private_qt_headers_warning c++11
+win32:CONFIG += console
 
 exists(".git") {
     GIT_SHA1 = $$system(git rev-list --abbrev-commit -n1 HEAD)

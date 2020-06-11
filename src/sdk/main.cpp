@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2018 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -26,12 +26,11 @@
 **
 **************************************************************************/
 
-#include "console.h"
 #include "constants.h"
 #include "commandlineparser.h"
 #include "installerbase.h"
 #include "sdkapp.h"
-#include "updatechecker.h"
+#include "commandlineinterface.h"
 #include "build_info.h"
 
 #include <errors.h>
@@ -83,24 +82,42 @@ int main(int argc, char *argv[])
     CommandLineParser parser;
     parser.parse(QInstaller::parseCommandLineArgs(argc, argv));
 
-    QStringList mutually;
-    if (parser.isSet(QLatin1String(CommandLineOptions::CheckUpdates)))
-        mutually << QLatin1String(CommandLineOptions::CheckUpdates);
-    if (parser.isSet(QLatin1String(CommandLineOptions::Updater)))
-        mutually << QLatin1String(CommandLineOptions::Updater);
-    if (parser.isSet(QLatin1String(CommandLineOptions::ManagePackages)))
-        mutually << QLatin1String(CommandLineOptions::ManagePackages);
+    bool sanityCheck = true;
+    QString sanityMessage;
 
-    const bool help = parser.isSet(QLatin1String(CommandLineOptions::HelpShort))
-        || parser.isSet(QLatin1String(CommandLineOptions::HelpLong));
-    if (help
-            || parser.isSet(QLatin1String(CommandLineOptions::Version))
-            || parser.isSet(QLatin1String(CommandLineOptions::FrameworkVersion))
-            || mutually.count() > 1) {
-        Console c;
+    QStringList mutually;
+    if (parser.isSet(CommandLineOptions::scStartUpdaterLong))
+        mutually << CommandLineOptions::scStartUpdaterLong;
+    if (parser.isSet(CommandLineOptions::scStartPackageManagerLong))
+        mutually << CommandLineOptions::scStartPackageManagerLong;
+    if (parser.isSet(CommandLineOptions::scStartUninstallerLong))
+        mutually << CommandLineOptions::scStartUninstallerLong;
+    // IFW 3.x.x style --updater option support provided for backward compatibility
+    if (parser.isSet(CommandLineOptions::scDeprecatedUpdater))
+        mutually << CommandLineOptions::scDeprecatedUpdater;
+
+    if (mutually.count() > 1) {
+        sanityMessage = QString::fromLatin1("The following options are mutually exclusive: %1.")
+            .arg(mutually.join(QLatin1String(", ")));
+        sanityCheck = false;
+    }
+    const QSet<QString> commands = parser.positionalArguments().toSet()
+        .intersect(CommandLineOptions::scCommandLineInterfaceOptions.toSet());
+    // Check sanity of the given argument sequence.
+    if (commands.size() > 1) {
+        sanityMessage = QString::fromLatin1("%1 commands provided, only one can be used at a time.")
+            .arg(commands.size());
+        sanityCheck = false;
+    } else if (!commands.isEmpty() && parser.positionalArguments().indexOf(commands.values().first()) != 0) {
+        sanityMessage = QString::fromLatin1("Found command but it is not given as the first positional "
+            "argument. \"%1\" given.").arg(parser.positionalArguments().first());
+        sanityCheck = false;
+    }
+    const bool help = parser.isSet(CommandLineOptions::scHelpLong);
+    if (help || parser.isSet(CommandLineOptions::scVersionLong) || !sanityCheck) {
         QCoreApplication app(argc, argv);
 
-        if (parser.isSet(QLatin1String(CommandLineOptions::Version))) {
+        if (parser.isSet(CommandLineOptions::scVersionLong)) {
             std::cout << VERSION << std::endl << BUILDDATE << std::endl << SHA << std::endl;
             std::cout << "SQP: " << SQP_IFW_VERSION_STRING  << std::endl;
             const QDateTime dateTime = QDateTime::fromString(QLatin1String(PLACEHOLDER),
@@ -110,21 +127,15 @@ int main(int argc, char *argv[])
             return EXIT_SUCCESS;
         }
 
-        if (parser.isSet(QLatin1String(CommandLineOptions::FrameworkVersion))) {
-            std::cout << QUOTE(IFW_VERSION_STR) << std::endl;
-            return EXIT_SUCCESS;
-        }
-
         std::cout << qPrintable(parser.helpText()) << std::endl;
-        if (mutually.count() > 1) {
-            std::cerr << qPrintable(QString::fromLatin1("The following options are mutually "
-                "exclusive: %1.").arg(mutually.join(QLatin1String(", ")))) << std::endl;
+        if (!sanityCheck) {
+            std::cerr << qPrintable(sanityMessage) << std::endl;
         }
         return help ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
-    if (parser.isSet(QLatin1String(CommandLineOptions::StartServer))) {
-        const QStringList arguments = parser.value(QLatin1String(CommandLineOptions::StartServer))
+    if (parser.isSet(CommandLineOptions::scStartServerLong)) {
+        const QStringList arguments = parser.value(CommandLineOptions::scStartServerLong)
             .split(QLatin1Char(','), QString::SkipEmptyParts);
 
         QString socketName, key;
@@ -162,9 +173,9 @@ int main(int argc, char *argv[])
 
         SDKApp<QCoreApplication> app(argc, argv);
         if (!argumentsValid) {
-            Console c;
             std::cout << qPrintable(parser.helpText()) << std::endl;
-            std::cerr << "Wrong argument(s) for option --startserver." << std::endl;
+            QString startServerStr = CommandLineOptions::scStartServerLong;
+            std::cerr << "Wrong argument(s) for option --" << startServerStr.toStdString() << std::endl;
             return EXIT_FAILURE;
         }
 
@@ -186,35 +197,73 @@ int main(int argc, char *argv[])
     }
 
     try {
-        QScopedPointer<Console> console;
-        if (parser.isSet(QLatin1String(CommandLineOptions::VerboseShort))
-            || parser.isSet(QLatin1String(CommandLineOptions::VerboseLong))) {
-                console.reset(new Console);
-                QInstaller::setVerbose(true);
+        // Check if any options requiring verbose output is set
+        bool setVerbose = parser.isSet(CommandLineOptions::scVerboseLong);
+
+        foreach (const QString &option, CommandLineOptions::scCommandLineInterfaceOptions) {
+            if (setVerbose) break;
+            setVerbose = parser.positionalArguments().contains(option);
+        }
+        if (setVerbose) {
+            QInstaller::setVerbose(true);
         }
 
-        // On Windows we need the console window from above, we are a GUI application.
         const QStringList unknownOptionNames = parser.unknownOptionNames();
         if (!unknownOptionNames.isEmpty()) {
             const QString options = unknownOptionNames.join(QLatin1String(", "));
             std::cerr << "Unknown option: " << qPrintable(options) << std::endl;
         }
 
-        if (parser.isSet(QLatin1String(CommandLineOptions::Proxy))) {
+        if (parser.isSet(CommandLineOptions::scSystemProxyLong)) {
             // Make sure we honor the system's proxy settings
             QNetworkProxyFactory::setUseSystemConfiguration(true);
         }
 
-        if (parser.isSet(QLatin1String(CommandLineOptions::NoProxy)))
+        if (parser.isSet(CommandLineOptions::scNoProxyLong))
             QNetworkProxyFactory::setUseSystemConfiguration(false);
 
-        if (parser.isSet(QLatin1String(CommandLineOptions::CheckUpdates)))
-            return UpdateChecker(argc, argv).check();
-
-        if (QInstaller::isVerbose())
-            std::cout << VERSION << std::endl << BUILDDATE << std::endl << SHA << std::endl;
-
         const SelfRestarter restarter(argc, argv);
+        if (parser.positionalArguments().contains(CommandLineOptions::scCheckUpdatesShort)
+                || parser.positionalArguments().contains(CommandLineOptions::scCheckUpdatesLong)
+                || parser.isSet(CommandLineOptions::scDeprecatedCheckUpdates)) {
+            // Also check for deprecated --checkupdates option, which is superseded by check-updates
+            // command in IFW 4.x.x. Should not be used for normal interactive usage.
+            return CommandLineInterface(argc, argv).checkUpdates();
+        } else if (parser.positionalArguments().contains(CommandLineOptions::scListShort)
+                || parser.positionalArguments().contains(CommandLineOptions::scListLong)) {
+            return CommandLineInterface(argc, argv).listInstalledPackages();
+        } else if (parser.positionalArguments().contains(CommandLineOptions::scSearchShort)
+                || parser.positionalArguments().contains(CommandLineOptions::scSearchLong)) {
+            return CommandLineInterface(argc, argv).searchAvailablePackages();
+        } else if (parser.positionalArguments().contains(CommandLineOptions::scUpdateShort)
+                || parser.positionalArguments().contains(CommandLineOptions::scUpdateLong)) {
+            return CommandLineInterface(argc, argv).updatePackages();
+        } else if (parser.positionalArguments().contains(CommandLineOptions::scInstallShort)
+                || parser.positionalArguments().contains(CommandLineOptions::scInstallLong)) {
+            return CommandLineInterface(argc, argv).installPackages();
+        } else if (parser.positionalArguments().contains(CommandLineOptions::scRemoveShort)
+                || parser.positionalArguments().contains(CommandLineOptions::scRemoveLong)){
+            return CommandLineInterface(argc, argv).uninstallPackages();
+        } else if (parser.positionalArguments().contains(CommandLineOptions::scPurgeShort)
+                || parser.positionalArguments().contains(CommandLineOptions::scPurgeLong)){
+            return CommandLineInterface(argc, argv).removeInstallation();
+        }
+        if (QInstaller::isVerbose()) {
+            std::cout << VERSION << std::endl << BUILDDATE << std::endl << SHA << std::endl;
+        } else {
+#ifdef Q_OS_WIN
+            // Check if installer is started from console. If so, restart the installer so it
+            // won't reserve the console handles.
+            DWORD procIDs[2];
+            DWORD maxCount = 2;
+            DWORD result = GetConsoleProcessList((LPDWORD)procIDs, maxCount);
+            FreeConsole(); // Closes console in GUI version
+            if (result > 1) {
+                restarter.setRestartOnQuit(true);
+                return EXIT_FAILURE;
+            }
+#endif
+        }
         return InstallerBase(argc, argv).run();
 
     } catch (const QInstaller::Error &e) {

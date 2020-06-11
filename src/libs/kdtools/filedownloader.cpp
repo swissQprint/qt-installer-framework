@@ -814,7 +814,7 @@ void KDUpdater::LocalFileDownloader::doDownload()
     if (!d->source->open(QFile::ReadOnly)) {
         onError();
         setDownloadAborted(tr("Cannot open file \"%1\" for reading: %2").arg(QFileInfo(localFile)
-            .fileName(), d->source->errorString()));
+            .fileName(), d->source ? d->source->errorString() : tr("File not found")));
         return;
     }
 
@@ -1575,7 +1575,7 @@ void KDUpdater::HttpDownloader::onSslErrors(QNetworkReply* reply, const QList<QS
             errorString += QLatin1String(", ");
         errorString += error.errorString();
     }
-    qDebug() << errorString;
+    qCWarning(QInstaller::lcInstallerInstallLog) << errorString;
 
     const QStringList arguments = QCoreApplication::arguments();
     if (arguments.contains(QLatin1String("--script")) || arguments.contains(QLatin1String("Script"))

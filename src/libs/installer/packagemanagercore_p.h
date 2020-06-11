@@ -128,7 +128,6 @@ public:
     bool runUninstaller();
     bool isUninstaller() const;
 
-    void runUpdater();
     bool isUpdater() const;
 
     bool runPackageUpdater();
@@ -164,6 +163,8 @@ public:
     void installComponent(Component *component, double progressOperationSize,
         bool adminRightsGained = false);
 
+    bool runningProcessesFound();
+
 signals:
     void installationStarted();
     void installationFinished();
@@ -184,11 +185,12 @@ public:
     bool m_needsHardRestart;
     bool m_testChecksum;
     bool m_launchedAsRoot;
+    bool m_commandLineInstance;
+    bool m_userSetBinaryMarker;
     bool m_checkAvailableSpace;
     bool m_completeUninstall;
     bool m_needToWriteMaintenanceTool;
     PackageManagerCoreData m_data;
-    QHash<QString, bool> m_sharedFlags;
     QString m_installerBaseBinaryUnreplaced;
 
     QList<QInstaller::Component*> m_rootComponents;
@@ -203,6 +205,9 @@ public:
     OperationList m_performedOperationsCurrentSession;
 
     bool m_dependsOnLocalInstallerBinary;
+    QStringList m_allowedRunningProcesses;
+    bool m_autoAcceptLicenses;
+    bool m_disableWriteMaintenanceTool;
 
 private slots:
     void infoMessage(Job *, const QString &message) {
@@ -233,12 +238,15 @@ private:
     PackagesList remotePackages();
     PackagesList compressedPackages();
     LocalPackagesHash localInstalledPackages();
-    bool fetchMetaInformationFromRepositories();
+    bool fetchMetaInformationFromRepositories(DownloadType type = DownloadType::All);
     bool fetchMetaInformationFromCompressedRepositories();
     bool addUpdateResourcesFromRepositories(bool parseChecksum, bool compressedRepository = false);
     void processFilesForDelayedDeletion();
     void findExecutablesRecursive(const QString &path, const QStringList &excludeFiles, QStringList *result);
     QStringList runningInstallerProcesses(const QStringList &exludeFiles);
+    bool calculateComponentsAndRun();
+    bool acceptLicenseAgreements() const;
+    bool askUserAcceptLicense(const QString &name, const QString &content) const;
 
 private:
     PackageManagerCore *m_core;

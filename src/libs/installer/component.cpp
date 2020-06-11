@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -305,7 +305,12 @@ void Component::loadDataFromPackage(const Package &package)
     setValue(scName, package.data(scName).toString());
     setValue(scDisplayName, package.data(scDisplayName).toString());
     setValue(scDescription, package.data(scDescription).toString());
-    setValue(scDefault, package.data(scDefault).toString());
+
+    QString isDefault = package.data(scDefault, scFalse).toString().toLower();
+    if (PackageManagerCore::noDefaultInstallation())
+        isDefault = scFalse;
+    setValue(scDefault, isDefault);
+
     setValue(scAutoDependOn, package.data(scAutoDependOn).toString());
     setValue(scCompressedSize, package.data(scCompressedSize).toString());
     setValue(scUncompressedSize, package.data(scUncompressedSize).toString());
@@ -557,7 +562,7 @@ void Component::loadComponentScript(const QString &fileName)
     } catch (const Error &error) {
         if (packageManagerCore()->settings().allowUnstableComponents()) {
             setUnstable(Component::UnstableError::ScriptLoadingFailed, error.message());
-            qWarning() << error.message();
+            qCWarning(QInstaller::lcInstallerInstallLog) << error.message();
         } else {
             throw error;
         }
@@ -875,7 +880,7 @@ void Component::addDownloadableArchive(const QString &path)
 {
     Q_ASSERT(isFromOnlineRepository());
 
-    qDebug() << "addDownloadable" << path;
+    qCDebug(QInstaller::lcGeneral) << "addDownloadable" << path;
     d->m_downloadableArchives.append(d->m_vars.value(scVersion) + path);
 }
 
@@ -1042,7 +1047,7 @@ Operation *Component::createOperation(const QString &operationName, const QStrin
         const QMessageBox::StandardButton button =
             MessageBoxHandler::critical(MessageBoxHandler::currentBestSuitParent(),
             QLatin1String("OperationDoesNotExistError"), tr("Error"), tr("Error: Operation %1 does not exist.")
-                .arg(operationName), QMessageBox::Abort | QMessageBox::Ignore);
+                .arg(operationName), QMessageBox::Abort | QMessageBox::Ignore, QMessageBox::Abort);
         if (button == QMessageBox::Abort)
             d->m_operationsCreatedSuccessfully = false;
         return operation;
@@ -1336,7 +1341,8 @@ bool Component::isDefault() const
         }
         if (!valueFromScript.isError())
             return valueFromScript.toBool();
-        qDebug() << "Value from script is not valid." << (valueFromScript.toString().isEmpty()
+        qCWarning(QInstaller::lcInstallerInstallLog) << "Value from script is not valid."
+            << (valueFromScript.toString().isEmpty()
             ? QString::fromLatin1("Unknown error.") : valueFromScript.toString());
         return false;
     }

@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -29,6 +29,7 @@
 
 #include "fileutils.h"
 #include "packagemanagercore.h"
+#include "globals.h"
 
 #include <QDebug>
 #include <QDir>
@@ -39,13 +40,13 @@ using namespace QInstaller;
 QString InstallIconsOperation::targetDirectory()
 {
     // we're not searching for the first time, let's re-use the old value
-    if (hasValue(QLatin1String("targetdirectory")))
-        return value(QLatin1String("targetdirectory")).toString();
+    if (hasValue(QLatin1String("directory")))
+        return value(QLatin1String("directory")).toString();
 
     QStringList XDG_DATA_HOME = QString::fromLocal8Bit(qgetenv("XDG_DATA_HOME"))
                                                         .split(QLatin1Char(':'),
         QString::SkipEmptyParts);
-    XDG_DATA_HOME.push_back(QDir::home().absoluteFilePath(QLatin1String(".local/share/icons"))); // default path
+    XDG_DATA_HOME.push_back(QDir::home().absoluteFilePath(QLatin1String(".local/share"))); // default path
 
     QString directory;
     const QStringList& directories = XDG_DATA_HOME;
@@ -53,11 +54,7 @@ QString InstallIconsOperation::targetDirectory()
         if (it->isEmpty())
             continue;
 
-        // our default dirs are correct, XDG_DATA_HOME set via env needs "icon" at the end
-        if ((it + 1 == directories.end()) || (it + 2 == directories.end()) || (it + 3 == directories.end()))
-            directory = QDir(*it).absolutePath();
-        else
-            directory = QDir(*it).absoluteFilePath(QLatin1String("icons"));
+        directory = QDir(*it).absoluteFilePath(QLatin1String("icons"));
 
         QDir dir(directory);
         // let's see if this dir exists or we're able to create it
@@ -87,11 +84,6 @@ InstallIconsOperation::InstallIconsOperation(PackageManagerCore *core)
     : UpdateOperation(core)
 {
     setName(QLatin1String("InstallIcons"));
-}
-
-InstallIconsOperation::~InstallIconsOperation()
-{
-    const QStringList backupFiles = value(QLatin1String("backupfiles")).toStringList();
 }
 
 void InstallIconsOperation::backup()
@@ -265,10 +257,10 @@ bool InstallIconsOperation::undoOperation()
     }
 
     if (!warningMessages.isEmpty()) {
-        qWarning() << "Undo of operation" << name() << "with arguments"
+        qCWarning(QInstaller::lcInstallerUninstallLog) << "Undo of operation" << name() << "with arguments"
                    << arguments().join(QLatin1String(", ")) << "had some problems.";
         foreach (const QString &message, warningMessages) {
-            qWarning().noquote() << message;
+            qCWarning(QInstaller::lcInstallerUninstallLog).noquote() << message;
         }
     }
 

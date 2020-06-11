@@ -29,6 +29,7 @@
 #include "downloadfiletask.h"
 
 #include "downloadfiletask_p.h"
+#include "globals.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -259,7 +260,7 @@ void Downloader::onError(QNetworkReply::NetworkError error)
         //with RepositoryUpdate in Updates.xml later.
         //: %2 is a sentence describing the error
         if (data.taskItem.source().contains(QLatin1String("Updates.xml"), Qt::CaseInsensitive)) {
-            qDebug() << QString::fromLatin1("Network error while downloading '%1': %2.").arg(
+            qCWarning(QInstaller::lcServer) << QString::fromLatin1("Network error while downloading '%1': %2.").arg(
                    data.taskItem.source(), reply->errorString());
             m_futureInterface->reportException(
                 TaskException(tr("Network error while downloading '%1': %2.").arg(
@@ -281,14 +282,17 @@ void Downloader::onSslErrors(const QList<QSslError> &sslErrors)
 #ifdef QT_NO_SSL
     Q_UNUSED(sslErrors);
 #else
-    foreach (const QSslError &error, sslErrors)
-        qDebug() << "SSL error:" << error.errorString();
+    foreach (const QSslError &error, sslErrors) {
+        qCWarning(QInstaller::lcServer) << "SSL error:" << error.errorString();
+ 	}
     auto reply = qobject_cast<QNetworkReply*>(sender());
     if (reply) {
         reply->ignoreSslErrors();
-        qDebug() << "SSL errors ignored...";
+        qCWarning(QInstaller::lcServer) << "SSL errors ignored ...";
     }
-    else qDebug() << "Failed to ignore ssl errors...";
+    else {
+		qCWarning(QInstaller::lcServer) << "Failed to ignore ssl errors ...";
+	}
 #endif
 }
 

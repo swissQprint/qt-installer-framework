@@ -46,7 +46,6 @@ namespace QInstaller
 
 PackageManagerCoreData::PackageManagerCoreData(const QHash<QString, QString> &variables)
 {
-    m_variables = variables;
     setDynamicPredefinedVariables();
 
     // Set some common variables that may used e.g. as placeholder in some of the settings variables or
@@ -86,6 +85,12 @@ PackageManagerCoreData::PackageManagerCoreData(const QHash<QString, QString> &va
 
     m_variables.insert(scTargetDir, replaceVariables(m_settings.targetDir()));
     m_variables.insert(scRemoveTargetDir, replaceVariables(m_settings.removeTargetDir()));
+
+    // Iterate over user defined parameters. If those are found, add to table or
+    // replace existing values.
+    QHash<QString, QString>::const_iterator it;
+    for (it = variables.begin(); it != variables.end(); ++it)
+        m_variables.insert(it.key(), it.value());
 }
 
 void PackageManagerCoreData::clear()
@@ -114,6 +119,12 @@ void PackageManagerCoreData::setDynamicPredefinedVariables()
     dir = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation).value(0);
 #endif
     m_variables.insert(QLatin1String("ApplicationsDir"), dir);
+
+    QString dirUser = dir;
+#ifdef Q_OS_MACOS
+    dirUser = QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation).value(0);
+#endif
+    m_variables.insert(QLatin1String("ApplicationsDirUser"), dirUser);
 
     QString dirX86 = dir;
     QString dirX64 = dir;
@@ -156,11 +167,16 @@ void PackageManagerCoreData::setDynamicPredefinedVariables()
         desktop = user.value(QLatin1String("Desktop")).toString();
     }
     m_variables.insert(QLatin1String("DesktopDir"), replaceWindowsEnvironmentVariables(desktop));
-    m_variables.insert(QLatin1String("UserStartMenuProgramsPath"),
+    m_variables.insert(scUserStartMenuProgramsPath,
         replaceWindowsEnvironmentVariables(programs));
-    m_variables.insert(QLatin1String("AllUsersStartMenuProgramsPath"),
+    m_variables.insert(scAllUsersStartMenuProgramsPath,
         replaceWindowsEnvironmentVariables(allPrograms));
 #endif
+#define QUOTE_(x) #x
+#define QUOTE(x) QUOTE_(x)
+    m_variables.insert(QLatin1String("IFW_VERSION_STR"),  QLatin1String(QUOTE(IFW_VERSION_STR)));
+#undef QUOTE
+#undef QUOTE_
 }
 
 Settings &PackageManagerCoreData::settings() const

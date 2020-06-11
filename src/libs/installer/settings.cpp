@@ -31,6 +31,7 @@
 #include "qinstallerglobal.h"
 #include "repository.h"
 #include "repositorycategory.h"
+#include "globals.h"
 
 #include <QtCore/QFileInfo>
 #include <QtCore/QStringList>
@@ -84,12 +85,13 @@ static void raiseError(QXmlStreamReader &reader, const QString &error, Settings:
     } else {
         QFile *xmlFile = qobject_cast<QFile*>(reader.device());
         if (xmlFile) {
-            qWarning().noquote().nospace()
+            qCWarning(QInstaller::lcInstallerInstallLog).noquote().nospace()
                     << "Ignoring following settings reader error in " << xmlFile->fileName()
                                  << ", line " << reader.lineNumber() << ", column " << reader.columnNumber()
                                  << ": " << error;
         } else {
-            qWarning("Ignoring following settings reader error: %s", qPrintable(error));
+            qCWarning(QInstaller::lcInstallerInstallLog) << "Ignoring following settings reader error: "
+                << qPrintable(error);
         }
     }
 }
@@ -287,6 +289,7 @@ Settings Settings::fromFileAndPrefix(const QString &path, const QString &prefix,
                 << scRunProgram << scRunProgramArguments << scRunProgramDescription
                 << scDependsOnLocalInstallerBinary
                 << scAllowSpaceInPath << scAllowNonAsciiCharacters << scDisableAuthorizationFallback
+                << scDisableCommandLineInterface
                 << scWizardStyle << scStyleSheet << scTitleColor
                 << scWizardDefaultWidth << scWizardDefaultHeight
                 << scRepositorySettingsPageVisible << scTargetConfigurationFile
@@ -563,6 +566,11 @@ bool Settings::allowNonAsciiCharacters() const
 bool Settings::disableAuthorizationFallback() const
 {
     return d->m_data.value(scDisableAuthorizationFallback, false).toBool();
+}
+
+bool Settings::disableCommandLineInterface() const
+{
+    return d->m_data.value(scDisableCommandLineInterface, false).toBool();
 }
 
 bool Settings::dependsOnLocalInstallerBinary() const

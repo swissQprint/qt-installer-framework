@@ -68,6 +68,11 @@ static void printUsage()
 
     std::cout << "  -v|--verbose              Verbose output" << std::endl;
 
+    std::cout << "  --unite-metadata          Combine all metadata into one 7z. This speeds up metadata " << std::endl;
+    std::cout << "                            download phase." << std::endl;
+
+    std::cout << "  --component-metadata      Creates one metadata 7z per component. " << std::endl;
+
     std::cout << std::endl;
     std::cout << "Example:" << std::endl;
     std::cout << "  " << appName << " -p ../examples/packages repository/"
@@ -99,6 +104,8 @@ int main(int argc, char** argv)
         QInstallerTools::FilterType filterType = QInstallerTools::Exclude;
         bool remove = false;
         bool updateExistingRepositoryWithNewComponents = false;
+        bool createUnifiedMetadata = true;
+        bool createComponentMetadata = true;
 
         //TODO: use a for loop without removing values from args like it is in binarycreator.cpp
         //for (QStringList::const_iterator it = args.begin(); it != args.end(); ++it) {
@@ -176,7 +183,14 @@ int main(int argc, char** argv)
             } else if (args.first() == QLatin1String("-r") || args.first() == QLatin1String("--remove")) {
                 remove = true;
                 args.removeFirst();
-            } else {
+            } else if (args.first() == QLatin1String("--unite-metadata")) {
+                createComponentMetadata = false;
+                args.removeFirst();
+            } else if (args.first() == QLatin1String("--component-metadata")) {
+                createUnifiedMetadata = false;
+                args.removeFirst();
+            }
+            else {
                 printUsage();
                 return 1;
             }
@@ -281,7 +295,8 @@ int main(int argc, char** argv)
         QInstallerTools::copyComponentData(directories, repositoryDir, &packages);
         QInstallerTools::copyMetaData(tmpMetaDir, repositoryDir, packages, QLatin1String("{AnyApplication}"),
             QLatin1String(QUOTE(IFW_REPOSITORY_FORMAT_VERSION)));
-        QInstallerTools::compressMetaDirectories(tmpMetaDir, tmpMetaDir, pathToVersionMapping);
+        QInstallerTools::compressMetaDirectories(tmpMetaDir, tmpMetaDir, pathToVersionMapping,
+                                                 createComponentMetadata, createUnifiedMetadata);
 
         QDirIterator it(repositoryDir, QStringList(QLatin1String("Updates*.xml")), QDir::Files | QDir::CaseSensitive);
         while (it.hasNext()) {

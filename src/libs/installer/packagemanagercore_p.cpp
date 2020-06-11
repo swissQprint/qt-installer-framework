@@ -216,6 +216,7 @@ PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core)
     , m_guiObject(nullptr)
     , m_remoteFileEngineHandler(nullptr)
     , m_foundEssentialUpdate(false)
+    , m_checkAvailableSpace(true)
 {
 }
 
@@ -247,6 +248,7 @@ PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core, q
     , m_guiObject(nullptr)
     , m_remoteFileEngineHandler(new RemoteFileEngineHandler)
     , m_foundEssentialUpdate(false)
+    , m_checkAvailableSpace(true)
 {
     foreach (const OperationBlob &operation, performedOperations) {
         QScopedPointer<QInstaller::Operation> op(KDUpdater::UpdateOperationFactory::instance()
@@ -1868,7 +1870,7 @@ void PackageManagerCorePrivate::installComponent(Component *component, double pr
     // show only components which do something, MinimumProgress is only for progress calculation safeness
     bool showDetailsLog = false;
     if (opCount > 1 || (opCount == 1 && operations.at(0)->name() != QLatin1String("MinimumProgress"))) {
-        ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(tr("\nInstalling component %1...")
+        ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(tr("\nInstalling component %1")
             .arg(component->displayName()));
         showDetailsLog = true;
     }

@@ -242,6 +242,9 @@ public:
     Q_INVOKABLE bool gainAdminRights();
     Q_INVOKABLE void dropAdminRights();
 
+    void setCheckAvailableSpace(bool check);
+    bool checkAvailableSpace(QString &message) const;
+
     Q_INVOKABLE quint64 requiredDiskSpace() const;
     Q_INVOKABLE quint64 requiredTemporaryDiskSpace() const;
 

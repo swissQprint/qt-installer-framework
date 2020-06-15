@@ -78,8 +78,6 @@ public:
     QSet<Component *> partially() const;
     QSet<Component *> unchecked() const;
     QSet<Component *> uncheckable() const;
-    ComponentList toInstall() const;
-    ComponentList toUninstall() const;
 
     PackageManagerCore *core() const;
     ComponentModel::ModelState checkedState() const;

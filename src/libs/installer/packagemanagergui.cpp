@@ -2206,15 +2206,7 @@ bool ComponentSelectionPage::isComplete() const
 {
     if (packageManagerCore()->isInstaller() || packageManagerCore()->isUpdater())
         return d->m_currentModel->checked().count();
-    // In addition to the checkState of the model, we'd like to know if some
-    // packages are declared to be installed or uninstalled. In this cases,
-    // the page is also complete -> next button is active. Otherwise its disabled
-    // for new packages with forcedInstallation = true
-    auto toInstall = d->m_currentModel->toInstall();
-    auto toUninstall = d->m_currentModel->toUninstall();
-    return !toInstall.isEmpty() ||
-           !toUninstall.isEmpty() ||
-            d->m_currentModel->checkedState().testFlag(ComponentModel::DefaultChecked) == false;
+    return d->m_currentModel->checkedState().testFlag(ComponentModel::DefaultChecked) == false;
 }
 
 

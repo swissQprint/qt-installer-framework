@@ -806,39 +806,43 @@ QHash<QString, QPair<Repository, Repository> > MetadataJob::searchAdditionalRepo
 MetadataJob::Status MetadataJob::setAdditionalRepositories(QHash<QString, QPair<Repository, Repository> > repositoryUpdates,
                                             const FileTaskResult &result, const Metadata& metadata)
 {
-    /*
-     * Wir wollen jegliche Änderungen an Repositories als temporäre Repositories
-     * registrieren. Diese sollen nicht abgelegt und über die Laufzeit des Installers
-     * existieren.
-     * Der Server leitet bei der Anfrage des Clients auf das entsprechende Updates.xml
-     * um. Dies tut er, indem er die Möglichkeit benutzt, eine weiteres Repository
-     * mitzuteilen (siehe https://doc.qt.io/qtinstallerframework/ifw-updates.html#relocatable-repositories).
-     * Damit dieses "neue" Repository nicht gespeichert wird, legen wir es nur als
-     * temporäres Repository an. Denn beim nächsten Start der Anwendung soll der Server
-     * neu entscheiden können, welches Repo für den Client freigegeben ist.
-     */
     MetadataJob::Status status = XmlDownloadSuccess;
     Settings &s = m_core->settings();
     const QSet<Repository> temporaries = s.temporaryRepositories();
-    QSet<Repository> tmpRepositories;
-    typedef QPair<Repository, Repository> RepositoryPair;
-    QList<RepositoryPair> values = repositoryUpdates.values(QLatin1String("add"));
-    foreach (const RepositoryPair &value, values)
-        tmpRepositories.insert(value.first);
-    values = repositoryUpdates.values(QLatin1String("replace"));
-    foreach (const RepositoryPair &value, values)
-        tmpRepositories.insert(value.first);
-    tmpRepositories = tmpRepositories.subtract(temporaries);
-    if (tmpRepositories.count() > 0) {
-        s.addTemporaryRepositories(tmpRepositories, true);
-        QFile::remove(result.target());
+    // in case the temp repository introduced something new, we only want that temporary
+    if (temporaries.contains(metadata.repository)) {
+        QSet<Repository> tmpRepositories;
+        typedef QPair<Repository, Repository> RepositoryPair;
+
+        QList<RepositoryPair> values = repositoryUpdates.values(QLatin1String("add"));
+        foreach (const RepositoryPair &value, values)
+            tmpRepositories.insert(value.first);
+
+        values = repositoryUpdates.values(QLatin1String("replace"));
+        foreach (const RepositoryPair &value, values)
+            tmpRepositories.insert(value.first);
+
+        tmpRepositories = tmpRepositories.subtract(temporaries);
+        if (tmpRepositories.count() > 0) {
+            s.addTemporaryRepositories(tmpRepositories, true);
+            QFile::remove(result.target());
+            m_metaFromDefaultRepositories.clear();
+            status = XmlDownloadRetry;
+        }
+    } else if (s.updateDefaultRepositories(repositoryUpdates) == Settings::UpdatesApplied) {
+        if (m_core->isMaintainer()) {
+            bool gainedAdminRights = false;
+            if (!m_core->directoryWritable(m_core->value(scTargetDir))) {
+                m_core->gainAdminRights();
+                gainedAdminRights = true;
+            }
+            m_core->writeMaintenanceConfigFiles();
+            if (gainedAdminRights)
+                m_core->dropAdminRights();
+        }
         m_metaFromDefaultRepositories.clear();
+        QFile::remove(result.target());
         status = XmlDownloadRetry;
-    }
-    auto repos = s.repositories();
-    for (const auto& repo : repos) {
-        qCDebug(QInstaller::lcInstallerInstallLog)
-                 << repo.displayname() << repo.url() << repo.categoryname();
     }
     return status;
 }

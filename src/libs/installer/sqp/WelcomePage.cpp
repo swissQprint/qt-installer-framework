@@ -9,7 +9,7 @@ WelcomePage::WelcomePage(PackageManagerCore *core)
 {
     ui.setupUi(this);
     setObjectName(QLatin1String("WelcomePage"));
-    setColoredTitle(tr("Welcome to swissQprint Maintenance Tool"));
+    setColoredTitle(tr("swissQprint Software Studio"));
     setSettingsButtonRequested(true);
 }
 

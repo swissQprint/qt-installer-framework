@@ -43,7 +43,7 @@ class ProductKeyCheckPrivate
 
         void registerSqpPages() {
             registerPage<sqp::WelcomePage>(PackageManagerCore::SqpWelcomePage);
-            //registerPage<sqp::MachineAuthenticationPage>(PackageManagerCore::SqpMachineAuthPage);
+            registerPage<sqp::MachineAuthenticationPage>(PackageManagerCore::SqpMachineAuthPage);
         }
 
         QList<int> registeredPages() const {

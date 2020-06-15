@@ -1,9 +1,9 @@
 #ifndef QINSTALLER_SQP_MACHINEAUTHENTICATIONPAGE_HPP
 #define QINSTALLER_SQP_MACHINEAUTHENTICATIONPAGE_HPP
 
-#include <QNetworkAccessManager>
 #include "../packagemanagergui.h"
-#include "ui_machineauthenticationpage.h"
+#include "ui_MachineAuthenticationPage.h" // Achtung, ui_ liegt in src directory!
+#include "MachineAuthentication.hpp"
 
 namespace QInstaller {
 namespace sqp {
@@ -38,23 +38,22 @@ class INSTALLER_EXPORT MachineAuthenticationPage : public PackageManagerPage
         void throwEvent(Event e);
 
     private slots:
-        void handleResponse(QNetworkReply*);
-        void handleSslErrors(QNetworkReply*, const QList<QSslError>&);
         void handleEvent(Event event);
 
     private:
-        void startAuthentication(const QString& token);
+        bool startAuthentication(const QString& token);
         void showFeedback(const QString& msg, int timeout);
         QString token() const;
-        QString baseurl() const;
+        QString extractBaseUrl(const QUrl&) const;
         Ui::MachineAuthenticationPage ui;
-        QNetworkAccessManager m_net;
 
         void setState(State s);
         State m_state = State::Unauthenticated;
 
         void writeMetaInfosToSettings();
         QUrl defaultRepository() const;
+
+        std::unique_ptr<MachineAuthentication> m_auth;
 };
 
 

@@ -14,7 +14,8 @@ include(../../../installerfw.pri)
 #   SOURCES += $$PWD/productkeycheck.cpp
 #   ...
 #   your files if needed
-HEADERS += productkeycheck.h
+HEADERS += productkeycheck.h \
+    sqp/MachineAuthentication.hpp
 
 !isEmpty(PRODUCTKEYCHECK_PRI_FILE) {
     # use undocumented no_batch config which disable the implicit rules on msvc compilers
@@ -137,6 +138,8 @@ HEADERS += packagemanagercore.h \
     sqp/installsettings.hpp \
     sqp/WelcomePage.hpp \
     sqp/MachineAuthenticationPage.hpp \
+    sqp/MachineAuthentication.hpp \
+    sqp/core/Optional.hpp \
     repositorycategory.h \
     componentselectionpage_p.h \
     commandlineparser.h \
@@ -150,6 +153,7 @@ SOURCES += packagemanagercore.cpp \
     binaryformatenginehandler.cpp \
     repository.cpp \
     fileutils.cpp \
+    sqp/MachineAuthentication.cpp \
     utils.cpp \
     component.cpp \
     scriptengine.cpp \
@@ -218,7 +222,9 @@ SOURCES += packagemanagercore.cpp \
     packagesource.cpp \
     sqp/WelcomePage.cpp \
     sqp/MachineAuthenticationPage.cpp \
+    sqp/MachineAuthentication.cpp \
     sqp/installsettings.cpp \
+    sqp/core/Optional.cpp \
     repositorycategory.cpp \
     componentselectionpage_p.cpp \
     commandlineparser.cpp

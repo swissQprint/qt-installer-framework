@@ -42,7 +42,7 @@ void MachineAuthenticationPage::initializePage()
 {
     PackageManagerPage::initializePage();
     auto core = packageManagerCore();
-    ui.token->setText(core->value(installsettings::MachineToken));
+    ui.token->setText(core->value(sqp::installsettings::MachineToken));
 }
 
 void MachineAuthenticationPage::cleanupPage()
@@ -65,7 +65,15 @@ bool MachineAuthenticationPage::validatePage()
 
 bool MachineAuthenticationPage::startAuthentication(const QString &token)
 {
-    m_auth = MachineAuthentication::authenticate(token);
+    auto core = packageManagerCore();
+    auto authUrl = core->value(sqp::installsettings::MachineAuthenticationUrl);
+    if (authUrl.isEmpty()) {
+        qCCritical(QInstaller::lcInstallerInstallLog)
+            << "There is no url for authenticate the machine!";
+        return false;
+    }
+    authUrl += QLatin1String("/")+token;
+    m_auth = MachineAuthentication::authenticate(authUrl);
     connect(m_auth.get(), &MachineAuthentication::finished, this,
         [&](){
             if (m_auth->isSuccess()) {
@@ -105,16 +113,11 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
             if (event == Event::Entered) {
                 writeMetaInfosToSettings();
 
-                // Url, die der Installer bei jeder Anfrage an den Server
-                // sendet muss jetzt auch noch angepasst werden, damit der
-                // eben verifizierte MachineToken mitgesandt wird.
-                auto core = packageManagerCore();
-                auto queryUrl = core->value(scUrlQueryString);
-                auto separator = QLatin1String("?");
-                if (!queryUrl.isEmpty())
-                    separator = QLatin1String("&");
-                queryUrl += separator + QLatin1String("token=") + token();
-                core->setValue(scUrlQueryString, queryUrl);
+                extendQueryUrl(QLatin1String("machine_token"), token());
+                const auto languages = QLocale().uiLanguages();
+                if (!languages.isEmpty()) {
+                    extendQueryUrl(QLatin1String("language"), languages.first());
+                }
 
                 // auf nächste WizardPage springen
                 wizard()->next();
@@ -125,6 +128,24 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
             }
             break;
     }
+}
+
+bool MachineAuthenticationPage::extendQueryUrl(const QString& key, const QString& value) const {
+    auto core = packageManagerCore();
+    auto queryUrl = core->value(scUrlQueryString);
+    if (!queryUrl.contains(key)) {
+        auto separator = QLatin1String("?");
+        if (!queryUrl.isEmpty())
+            separator = QLatin1String("&");
+        queryUrl += separator + key + QLatin1String("=") + value;
+        core->setValue(scUrlQueryString, queryUrl);
+    } else {
+        qCCritical(QInstaller::lcInstallerInstallLog)
+                << "Query string already contains key"
+                << key << "in url" << queryUrl;
+        return false;
+    }
+    return true;
 }
 
 void MachineAuthenticationPage::showFeedback(const QString &msg, int timeout)
@@ -138,11 +159,6 @@ QString MachineAuthenticationPage::token() const
     return ui.token->text();
 }
 
-QString MachineAuthenticationPage::extractBaseUrl(const QUrl& url) const
-{
-    return url.toString(QUrl::RemovePath|QUrl::NormalizePathSegments|QUrl::StripTrailingSlash);
-}
-
 /**
  * @brief Wir schreiben hier einige Basisinformationen in ein Ini-File.
  * Diese Informationen sind vielleicht für später nützlich.
@@ -150,43 +166,10 @@ QString MachineAuthenticationPage::extractBaseUrl(const QUrl& url) const
 void MachineAuthenticationPage::writeMetaInfosToSettings()
 {
     auto core = packageManagerCore();
-    using namespace sqp;
-
-    // Basis Url des Installers
-    const auto url = defaultRepository();
-    const auto base = extractBaseUrl(url);
-    //installsettings::setValue(installsettings::BaseUrl, base);
-    core->setValue(installsettings::BaseUrl, base);
-
+    // Basisurl wird vom Ersteller definiert.
     // verwendetes MachineToken
     const auto token = ui.token->text();
-    //installsettings::setValue(installsettings::MachineToken, token);
-    core->setValue(installsettings::MachineToken, token);
-}
-
-/**
- * @brief Ermittelt das Default-Repository. Dieses wird vom Installer für die
- * Http-Anfragen verwendet. Das ist jene Url, im config.xml eingetragen ist. Es
- * sollte auch immer nur ein Repository vorhanden sein.
- * @return Gesamte Url des Default-Repositories.
- */
-QUrl MachineAuthenticationPage::defaultRepository() const
-{
-    // Default-Repositories ermitteln
-    const auto& settings = packageManagerCore()->settings();
-    const auto repos = settings.defaultRepositories();
-    // Abbruch, wenn kein Default-Repostory vorhanden ist:
-    if (repos.isEmpty()) {
-        qCCritical(QInstaller::lcInstallerInstallLog)
-                << "No default repository found!";
-        return QUrl();
-    }
-    if (repos.size() > 1) {
-        qCCritical(QInstaller::lcInstallerInstallLog)
-                << "More than one default repository found:"
-                << repos.size();
-    }
-    return repos.begin()->url();
+    core->setValue(sqp::installsettings::MachineToken, token);
 }
 
 void MachineAuthenticationPage::setState(MachineAuthenticationPage::State s)

@@ -9,8 +9,10 @@ namespace QInstaller {
 namespace sqp {
 namespace installsettings {
     // Keys
-    static const QLatin1String MachineToken("sqp-machine-token");
-    static const QLatin1String BaseUrl("sqp-base-url");
+    static const QLatin1String MachineToken("SqpMachineToken");
+    static const QLatin1String BundleVersion("SqpBundleVersion");
+    static const QLatin1String BaseRepositoryUrl("SqpBaseRepositoryUrl");
+    static const QLatin1String MachineAuthenticationUrl("SqpMachineAuthenticationUrl");
 
     // Functions
     void INSTALLER_EXPORT setValue(const QString& key, const QVariant& value);

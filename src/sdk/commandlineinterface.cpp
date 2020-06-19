@@ -111,6 +111,8 @@ int CommandLineInterface::checkUpdates()
     foreach (QInstaller::Component *component, components) {
         QDomElement update = doc.createElement(QLatin1String("update"));
         update.setAttribute(QLatin1String("name"), component->value(QInstaller::scDisplayName));
+        update.setAttribute(QLatin1String("title"), component->value(QInstaller::scTitle));
+        update.setAttribute(QLatin1String("publisher"), component->value(QInstaller::scPublisher));
         update.setAttribute(QLatin1String("version"), component->value(QInstaller::scVersion));
         update.setAttribute(QLatin1String("size"), component->value(QInstaller::scUncompressedSize));
         update.setAttribute(QLatin1String("current"), component->value(QInstaller::scInstalledVersion));

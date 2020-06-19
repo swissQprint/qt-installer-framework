@@ -318,7 +318,7 @@ public:
     explicit ComponentSelectionPage(PackageManagerCore *core);
     ~ComponentSelectionPage();
 
-    bool isComplete() const;
+    virtual bool isComplete() const override;
 
     Q_INVOKABLE void selectAll();
     Q_INVOKABLE void deselectAll();
@@ -329,9 +329,9 @@ public:
     Q_INVOKABLE bool addVirtualComponentToUninstall(const QString &name);
 
 protected:
-    void entering();
-    void leaving();
-    void showEvent(QShowEvent *event);
+    virtual void entering() override;
+    virtual void leaving() override;
+    virtual void showEvent(QShowEvent *event) override;
 
 private Q_SLOTS:
     void setModified(bool modified);

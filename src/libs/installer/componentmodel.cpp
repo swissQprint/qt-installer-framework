@@ -346,26 +346,36 @@ QSet<Component *> ComponentModel::uncheckable() const
     return m_uncheckable;
 }
 
-ComponentModel::ComponentList ComponentModel::toInstall() const
-{
-    ComponentList components = m_rootComponentList;
+ComponentModel::ComponentList ComponentModel::toInstall(const ComponentList& parent) const {
     ComponentList lst;
-    for (auto c : components) {
-        if (c->installAction() == Component::InstallAction::Install)
+    for (auto c : parent) {
+        lst << toInstall(c->descendantComponents());
+        if (c->installAction() == Component::InstallAction::Install) {
             lst << c;
+        }
     }
     return lst;
 }
 
-ComponentModel::ComponentList ComponentModel::toUninstall() const
-{
-    ComponentList components = m_rootComponentList;
+ComponentModel::ComponentList ComponentModel::toUninstall(const ComponentList& parent) const {
     ComponentList lst;
-    for (auto c : components) {
-        if (c->installAction() == Component::InstallAction::Uninstall)
+    for (auto c : parent) {
+        lst << toUninstall(c->descendantComponents());
+        if (c->installAction() == Component::InstallAction::Uninstall) {
             lst << c;
+        }
     }
     return lst;
+}
+
+ComponentModel::ComponentList ComponentModel::toInstall() const
+{
+    return toInstall(m_rootComponentList);
+}
+
+ComponentModel::ComponentList ComponentModel::toUninstall() const
+{
+    return toUninstall(m_rootComponentList);
 }
 
 /*!

@@ -100,6 +100,8 @@ private Q_SLOTS:
     void onVirtualStateChanged();
 
 private:
+    ComponentList toInstall(const ComponentList&) const;
+    ComponentList toUninstall(const ComponentList&) const;
     void updateAndEmitModelState();
     void collectComponents(Component *const component, const QModelIndex &parent) const;
     QSet<QModelIndex> updateCheckedState(const ComponentSet &components, Qt::CheckState state);

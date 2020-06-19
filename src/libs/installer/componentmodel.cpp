@@ -346,6 +346,28 @@ QSet<Component *> ComponentModel::uncheckable() const
     return m_uncheckable;
 }
 
+ComponentModel::ComponentList ComponentModel::toInstall() const
+{
+    ComponentList components = m_rootComponentList;
+    ComponentList lst;
+    for (auto c : components) {
+        if (c->installAction() == Component::InstallAction::Install)
+            lst << c;
+    }
+    return lst;
+}
+
+ComponentModel::ComponentList ComponentModel::toUninstall() const
+{
+    ComponentList components = m_rootComponentList;
+    ComponentList lst;
+    for (auto c : components) {
+        if (c->installAction() == Component::InstallAction::Uninstall)
+            lst << c;
+    }
+    return lst;
+}
+
 /*!
     Returns a pointer to the PackageManagerCore this model belongs to.
 */

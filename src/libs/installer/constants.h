@@ -192,6 +192,10 @@ static const QLatin1String scSquishPortLong("squish-port");
 static const QLatin1String scDeprecatedUpdater("updater");
 static const QLatin1String scDeprecatedCheckUpdates("checkupdates");
 
+// swissQprint options
+static const QLatin1String scSqpPlotMachineTokenLong("sqp-plot-machine-token");
+static const QLatin1String scSqpPlotMachineTokenShort("sqp-pmt");
+
 // Options supposed to be used without graphical interface
 static const QStringList scCommandLineInterfaceOptions = {
     scInstallShort,

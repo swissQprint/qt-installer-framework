@@ -48,6 +48,7 @@ public:
     int installPackages();
     int uninstallPackages();
     int removeInstallation();
+    int plotMachineToken();
 
 private:
     bool initialize();

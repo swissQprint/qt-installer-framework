@@ -247,6 +247,9 @@ int main(int argc, char *argv[])
         } else if (parser.positionalArguments().contains(CommandLineOptions::scPurgeShort)
                 || parser.positionalArguments().contains(CommandLineOptions::scPurgeLong)){
             return CommandLineInterface(argc, argv).removeInstallation();
+        } else if (parser.isSet(CommandLineOptions::scSqpPlotMachineTokenLong) ||
+                   parser.isSet(CommandLineOptions::scSqpPlotMachineTokenShort)) {
+            return CommandLineInterface(argc,argv).plotMachineToken();
         }
         if (QInstaller::isVerbose()) {
             std::cout << VERSION << std::endl << BUILDDATE << std::endl << SHA << std::endl;

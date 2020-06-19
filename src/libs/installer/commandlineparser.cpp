@@ -81,6 +81,9 @@ CommandLineParser::CommandLineParser()
                       "category: ifw.*=false, ifw.category=true. The following logging categories "
                       "are available:\n") + QInstaller::loggingCategories().join(QLatin1Char('\n')),
         QLatin1String("rules")));
+    m_parser.addOption(QCommandLineOption(QStringList()
+        << CommandLineOptions::scSqpPlotMachineTokenLong << CommandLineOptions::scSqpPlotMachineTokenShort,
+        QLatin1String("Plot swissQprint machine authentication token.")));
 
     // Repository management options
     m_parser.addOption(QCommandLineOption(QStringList()

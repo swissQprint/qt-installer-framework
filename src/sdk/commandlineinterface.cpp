@@ -39,6 +39,7 @@
 #include <QDomDocument>
 
 #include <iostream>
+#include <sqp/installsettings.hpp>
 
 CommandLineInterface::CommandLineInterface(int &argc, char *argv[])
     : SDKApp<QCoreApplication>(argc, argv)
@@ -232,6 +233,15 @@ int CommandLineInterface::removeInstallation()
         qCCritical(QInstaller::lcInstallerInstallLog) << err.message();
         return EXIT_FAILURE;
     }
+}
+
+int CommandLineInterface::plotMachineToken()
+{
+    if (!initialize()) {
+        return EXIT_FAILURE;
+    }
+    std::cout<<m_core->value(QInstaller::sqp::installsettings::MachineToken).toStdString()<<std::endl;
+    return EXIT_SUCCESS;
 }
 
 bool CommandLineInterface::checkLicense()

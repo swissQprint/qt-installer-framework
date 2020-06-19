@@ -19,10 +19,13 @@ class INSTALLER_EXPORT MachineAuthentication final : public QObject
 
     public:
         using Result = sqp::core::Optional<QString>;
-        MachineAuthentication(const QString& machineToken, QObject* parent = nullptr);
+        MachineAuthentication(
+            const QString& resourceUrl,
+            QObject* parent = nullptr
+        );
         virtual ~MachineAuthentication();
 
-        static std::unique_ptr<MachineAuthentication> authenticate(const QString& machineToken);
+        static std::unique_ptr<MachineAuthentication> authenticate(const QString& resourceUrl);
 
         bool isError() const;
         bool isSuccess() const;

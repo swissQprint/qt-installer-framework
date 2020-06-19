@@ -9,14 +9,14 @@
 namespace QInstaller {
 namespace sqp {
 
-MachineAuthentication::MachineAuthentication(const QString& machineToken, QObject* parent)
-    : QObject(parent)
+MachineAuthentication::MachineAuthentication(
+    const QString& resourceUrl,
+    QObject* parent
+) : QObject(parent)
     , m_network(std::make_unique<QNetworkAccessManager>())
 {
     QNetworkRequest request;
-    request.setUrl(QString::fromLatin1("%1/%2")
-                   .arg(QLatin1String("https://dev.api.swissqprint.com/1.1/authorization/tokens"))
-                   .arg(machineToken));
+    request.setUrl(resourceUrl);
     auto reply = m_network->get(request);
     connect(reply, &QNetworkReply::finished, this,
         [this,reply](){
@@ -37,14 +37,6 @@ MachineAuthentication::MachineAuthentication(const QString& machineToken, QObjec
             reply->ignoreSslErrors();
         }
     );
-//    connect(reply, &QNetworkReply::errorOccurred, this,
-//        [this,reply](QNetworkReply::NetworkError){
-//            m_result = reply->errorString();
-//            m_success = reply->error() == QNetworkReply::NoError;
-//            reply->deleteLater();
-//            emit finished();
-//        }
-//    );
 }
 
 MachineAuthentication::~MachineAuthentication() {  }

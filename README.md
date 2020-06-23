@@ -19,7 +19,9 @@ We need a qmake from a statically built Qt!
 
 *  Open Visual Studio x64 native command prompt
 *  Extend the path variable to find the correct Qt qmake and jom (if needed)
-   example: set PATH="C:\Qt\static\5.10.1\bin;C:\Qt\Tools\QtCreator\bin;%PATH%"
+   Examples: 
+     *  set PATH="C:\Qt\static\5.10.1\bin;C:\Qt\Tools\QtCreator\bin;%PATH%"
+     *  $env:PATH += ";C:\Qt\static\5.10.1\bin;C:\Qt\Tools\QtCreator\bin"
 *  run 'qmake.exe installerfw.pro CONFIG+=release -spec win32-msvc'
 *  run 'jom.exe /J 10' 
 *  See the result in build/ as installerbase.exe is created

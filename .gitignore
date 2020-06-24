@@ -20,7 +20,6 @@
 *.embed.manifest
 .#*
 *.*#
-core
 .qmake.cache
 .qmake.vars
 *.prl

@@ -1,7 +1,8 @@
 from conans import ConanFile, python_requires, VisualStudioBuildEnvironment, tools
 import os, json, shutil
 
-sqp = python_requires("sqpBuildTools/[~0.3]@sqp/testing")
+build_tools = "sqpBuildTools/[~0.8]@tools/release"
+sqp = python_requires(build_tools)
 
 def read_git_information():
     # Wir ermitteln ein Map von wichtigen Informationen aus dem
@@ -26,7 +27,7 @@ class SQPQtIFWConan(ConanFile):
     description = "Basic binary for building Qt installers."
     settings = "os", "compiler", "build_type", "arch"
     build_requires = (
-        ("sqpBuildTools/[~0.3]@sqp/testing")
+        (build_tools)
     )
     exports_sources = "src/*", "installerfw.pri", "installerfw.pro", "tools/*"
     exports = "gitinfo.json"

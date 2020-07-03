@@ -43,7 +43,6 @@ class INSTALLER_EXPORT MachineAuthenticationPage : public PackageManagerPage
     private:
         bool startAuthentication(const QString& token);
         void showFeedback(const QString& msg, int timeout);
-        bool extendQueryUrl(const QString& key, const QString& value) const;
         QString token() const;
         Ui::MachineAuthenticationPage ui;
         void setState(State s);

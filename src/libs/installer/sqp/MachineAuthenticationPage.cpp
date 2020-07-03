@@ -110,34 +110,11 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
         case State::Authenticated:
             if (event == Event::Entered) {
                 writeMetaInfosToSettings();
-                auto core = packageManagerCore();
-                extendQueryUrl(
-                    QLatin1String("machine_token"),
-                    core->value(sqp::installsettings::MachineToken)
-                );
                 wizard()->next();
                 setState(State::Unauthenticated);
             }
             break;
     }
-}
-
-bool MachineAuthenticationPage::extendQueryUrl(const QString& key, const QString& value) const {
-    auto core = packageManagerCore();
-    auto queryUrl = core->value(scUrlQueryString);
-    if (!queryUrl.contains(key)) {
-        auto separator = QLatin1String("?");
-        if (!queryUrl.isEmpty())
-            separator = QLatin1String("&");
-        queryUrl += separator + key + QLatin1String("=") + value;
-        core->setValue(scUrlQueryString, queryUrl);
-    } else {
-        qCCritical(QInstaller::lcInstallerInstallLog)
-                << "Query string already contains key"
-                << key << "in url" << queryUrl;
-        return false;
-    }
-    return true;
 }
 
 void MachineAuthenticationPage::showFeedback(const QString &msg, int timeout)

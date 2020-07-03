@@ -47,6 +47,9 @@
 #include "installercalculator.h"
 #include "uninstallercalculator.h"
 
+#include "sqp/installsettings.hpp"
+#include "systeminfo.h"
+
 #include <productkeycheck.h>
 
 #include <QFuture>
@@ -955,6 +958,63 @@ QString PackageManagerCore::readConsoleLine(const QString &title, qint64 maxlen)
     QString input;
     stream.readLineInto(&input, maxlen);
     return input;
+}
+
+QString replaced(QString url, const QString& key, const QString& value) {
+    auto startIdx = url.indexOf(key);
+    if (startIdx < 0) {
+        return url;
+    }
+    startIdx += key.size() + 1; // key + '='
+    auto endIdx = url.indexOf(QLatin1String("&"), startIdx);
+    if (endIdx < 0) {
+        endIdx = url.size(); // end
+    }
+    url.replace(startIdx,endIdx-startIdx,value);
+    return url;
+}
+
+QString PackageManagerCore::extendedUrlQueryString(const QString& key, const QString& value) const {
+    auto queryUrl = this->value(scUrlQueryString);
+    if (!queryUrl.contains(key)) {
+        QString separator;
+        if (!queryUrl.isEmpty()) {
+            separator = QLatin1String("&");
+        }
+        queryUrl += separator + key + QLatin1String("=") + value;
+    } else {
+        queryUrl = replaced(queryUrl, key, value);
+    }
+    return queryUrl;
+}
+
+QString PackageManagerCore::generateSqpDefaultUrlQueryString() const {
+    SystemInfo system;
+    QString url; const QChar sep = QLatin1Char('&');
+    url += QLatin1String("bundle_version=%1").arg(this->value(sqp::installsettings::BundleVersion));
+    url += sep;
+    url += QLatin1String("os_version=%1").arg(system.productVersion());
+    url += sep;
+    url += QLatin1String("kernel_version=%1").arg(system.kernelVersion());
+    url += sep;
+    url += QLatin1String("language=%1").arg(system.language());
+    if (containsValue(sqp::installsettings::MachineToken)) {
+        url += sep;
+        url += QLatin1String("machine_token=%2").arg(this->value(sqp::installsettings::MachineToken));
+    }
+    if (containsValue(sqp::installsettings::ReleaseChannel)) {
+        url += sep;
+        url += QLatin1String("channel=%2").arg(this->value(sqp::installsettings::ReleaseChannel));
+    }
+    return url;
+}
+
+bool PackageManagerCore::updateSqpDefaultUrlQueryString() {
+    const auto defUrl = generateSqpDefaultUrlQueryString();
+    if (defUrl == value(scUrlQueryString)) {
+        return false;
+    }
+    return setValue(scUrlQueryString, defUrl);
 }
 
 /*!
@@ -2988,11 +3048,14 @@ QStringList PackageManagerCore::values(const QString &key, const QStringList &de
     \sa {installer::setValue}{installer.setValue}
     \sa value(), containsValue(), valueChanged()
 */
-void PackageManagerCore::setValue(const QString &key, const QString &value)
+bool PackageManagerCore::setValue(const QString &key, const QString &value)
 {
     const QString normalizedValue = replaceVariables(value);
-    if (d->m_data.setValue(key, normalizedValue))
+    bool done = d->m_data.setValue(key, normalizedValue);
+    if (done) {
         emit valueChanged(key, normalizedValue);
+    }
+    return done;
 }
 
 /*!

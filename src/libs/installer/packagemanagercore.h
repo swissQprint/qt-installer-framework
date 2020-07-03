@@ -163,7 +163,7 @@ public:
 
     // parameter handling
     Q_INVOKABLE bool containsValue(const QString &key) const;
-    Q_INVOKABLE void setValue(const QString &key, const QString &value);
+    Q_INVOKABLE bool setValue(const QString &key, const QString &value);
     Q_INVOKABLE QString value(const QString &key, const QString &defaultValue = QString()) const;
     Q_INVOKABLE QStringList values(const QString &key, const QStringList &defaultValue = QStringList()) const;
 
@@ -202,6 +202,10 @@ public:
     Q_INVOKABLE bool fileExists(const QString &filePath) const;
     Q_INVOKABLE QString readFile(const QString &filePath, const QString &codecName) const;
     Q_INVOKABLE QString readConsoleLine(const QString &title = QString(), qint64 maxlen = 0) const;
+
+    Q_INVOKABLE QString extendedUrlQueryString(const QString& key, const QString& value) const;
+    Q_INVOKABLE QString generateSqpDefaultUrlQueryString() const;
+    Q_INVOKABLE bool updateSqpDefaultUrlQueryString();
 
     bool checkTargetDir(const QString &targetDirectory);
     QString targetDirWarning(const QString &targetDirectory) const;

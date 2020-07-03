@@ -13,6 +13,7 @@ namespace installsettings {
     static const QLatin1String BundleVersion("SqpBundleVersion");
     static const QLatin1String BaseRepositoryUrl("SqpBaseRepositoryUrl");
     static const QLatin1String MachineAuthenticationUrl("SqpMachineAuthenticationUrl");
+    static const QLatin1String ReleaseChannel("SqpReleaseChannel");
 
     // Functions
     void INSTALLER_EXPORT setValue(const QString& key, const QVariant& value);

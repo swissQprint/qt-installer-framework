@@ -3,6 +3,7 @@
 #include "globals.h"
 #include "settings.h"
 #include "constants.h"
+#include "systeminfo.h"
 
 #include <QIntValidator>
 #include <QMessageBox>
@@ -20,9 +21,7 @@ MachineAuthenticationPage::MachineAuthenticationPage(PackageManagerCore *core) :
     setObjectName(QLatin1String("MachineAuthenticationPage"));
     setColoredTitle(tr("Authenticate Machine"));
     setSettingsButtonRequested(true);
-
     registerField(QLatin1String("machine-token*"), ui.token);
-
     connect(ui.token, &QLineEdit::textChanged,
             this, &MachineAuthenticationPage::completeChanged);
     connect(this, &MachineAuthenticationPage::throwEvent,
@@ -113,11 +112,12 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
             if (event == Event::Entered) {
                 writeMetaInfosToSettings();
 
-                extendQueryUrl(QLatin1String("machine_token"), token());
-                const auto languages = QLocale().uiLanguages();
-                if (!languages.isEmpty()) {
-                    extendQueryUrl(QLatin1String("language"), languages.first());
-                }
+                auto core = packageManagerCore();
+                extendQueryUrl(
+                    QLatin1String("machine_token"),
+                    core->value(sqp::installsettings::MachineToken)
+                );
+                extendQueryUrl(QLatin1String("language"), SystemInfo().language());
 
                 // auf nächste WizardPage springen
                 wizard()->next();
@@ -166,10 +166,7 @@ QString MachineAuthenticationPage::token() const
 void MachineAuthenticationPage::writeMetaInfosToSettings()
 {
     auto core = packageManagerCore();
-    // Basisurl wird vom Ersteller definiert.
-    // verwendetes MachineToken
-    const auto token = ui.token->text();
-    core->setValue(sqp::installsettings::MachineToken, token);
+    core->setValue(sqp::installsettings::MachineToken, token());
 }
 
 void MachineAuthenticationPage::setState(MachineAuthenticationPage::State s)

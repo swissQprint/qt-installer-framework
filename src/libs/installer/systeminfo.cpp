@@ -28,6 +28,7 @@
 
 #include "systeminfo.h"
 #include <QSysInfo>
+#include <QLocale>
 
 namespace QInstaller {
 
@@ -176,6 +177,14 @@ QString SystemInfo::productVersion() const
 QString SystemInfo::prettyProductName() const
 {
     return QSysInfo::prettyProductName();
+}
+
+QStringList SystemInfo::languages() const {
+    return QLocale::system().uiLanguages();
+}
+
+QString SystemInfo::language() const {
+    return languages().value(0, QString());
 }
 
 } // namespace QInstaller

@@ -44,6 +44,8 @@ class SystemInfo : public QObject
     Q_PROPERTY(QString productType READ productType CONSTANT)
     Q_PROPERTY(QString productVersion READ productVersion CONSTANT)
     Q_PROPERTY(QString prettyProductName READ prettyProductName CONSTANT)
+    Q_PROPERTY(QStringList languages READ languages CONSTANT)
+    Q_PROPERTY(QString language READ language CONSTANT)
 
 public:
     explicit SystemInfo(QObject *parent = 0);
@@ -55,6 +57,8 @@ public:
     QString productType() const;
     QString productVersion() const;
     QString prettyProductName() const;
+    QString language() const;
+    QStringList languages() const;
 };
 
 } // namespace QInstaller

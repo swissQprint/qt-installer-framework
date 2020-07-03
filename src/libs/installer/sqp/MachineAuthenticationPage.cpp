@@ -3,7 +3,6 @@
 #include "globals.h"
 #include "settings.h"
 #include "constants.h"
-#include "systeminfo.h"
 
 #include <QIntValidator>
 #include <QMessageBox>
@@ -111,19 +110,12 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
         case State::Authenticated:
             if (event == Event::Entered) {
                 writeMetaInfosToSettings();
-
                 auto core = packageManagerCore();
                 extendQueryUrl(
                     QLatin1String("machine_token"),
                     core->value(sqp::installsettings::MachineToken)
                 );
-                extendQueryUrl(QLatin1String("language"), SystemInfo().language());
-
-                // auf nächste WizardPage springen
                 wizard()->next();
-
-                // Zustand zurücksetzen, damit beim nächsten Eintritt in die
-                // Page wieder neu authentifiziert wird.
                 setState(State::Unauthenticated);
             }
             break;

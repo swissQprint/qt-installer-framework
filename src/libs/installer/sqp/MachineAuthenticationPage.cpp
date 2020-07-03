@@ -110,6 +110,12 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
         case State::Authenticated:
             if (event == Event::Entered) {
                 writeMetaInfosToSettings();
+                auto core = packageManagerCore();
+                const auto url = core->extendedUrlQueryString(
+                    QLatin1String("machine_token"),
+                    core->value(sqp::installsettings::MachineToken)
+                );
+                core->setValue(scUrlQueryString, url);
                 wizard()->next();
                 setState(State::Unauthenticated);
             }

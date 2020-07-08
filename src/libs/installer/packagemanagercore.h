@@ -264,6 +264,7 @@ public:
 
     void setCommandLineInstance(bool commandLineInstance);
     Q_INVOKABLE bool isCommandLineInstance() const;
+    Q_INVOKABLE bool isCommandLineDefaultInstall() const;
 
     bool isMaintainer() const;
 
@@ -288,11 +289,14 @@ public:
 
     Q_INVOKABLE bool addWizardPage(QInstaller::Component *component, const QString &name, int page);
     Q_INVOKABLE bool removeWizardPage(QInstaller::Component *component, const QString &name);
-    Q_INVOKABLE bool addWizardPageItem(QInstaller::Component *component, const QString &name, int page);
+    Q_INVOKABLE bool addWizardPageItem(QInstaller::Component *component, const QString &name,
+                                       int page, int position = 100);
     Q_INVOKABLE bool removeWizardPageItem(QInstaller::Component *component, const QString &name);
     Q_INVOKABLE bool setDefaultPageVisible(int page, bool visible);
     Q_INVOKABLE void setValidatorForCustomPage(QInstaller::Component *component, const QString &name,
                                                const QString &callbackName);
+    Q_INVOKABLE void selectComponent(const QString &id);
+    Q_INVOKABLE void deselectComponent(const QString &id);
 
     void rollBackInstallation();
 
@@ -358,7 +362,8 @@ Q_SIGNALS:
 
     void wizardPageInsertionRequested(QWidget *widget, QInstaller::PackageManagerCore::WizardPage page);
     void wizardPageRemovalRequested(QWidget *widget);
-    void wizardWidgetInsertionRequested(QWidget *widget, QInstaller::PackageManagerCore::WizardPage page);
+    void wizardWidgetInsertionRequested(QWidget *widget, QInstaller::PackageManagerCore::WizardPage page,
+                                        int position);
     void wizardWidgetRemovalRequested(QWidget *widget);
     void wizardPageVisibilityChangeRequested(bool visible, int page);
     void setValidatorForCustomPageRequested(QInstaller::Component *component, const QString &name,
@@ -391,9 +396,6 @@ private:
     QList<Component *> componentsMarkedForInstallation() const;
 
     bool fetchPackagesTree(const PackagesList &packages, const LocalPackagesHash installedPackages);
-    void printPackageInformation(const QString &name, const Package *update);
-    void printLocalPackageInformation(const KDUpdater::LocalPackage package) const;
-
     bool componentUninstallableFromCommandLine(const QString &componentName);
 
 private:

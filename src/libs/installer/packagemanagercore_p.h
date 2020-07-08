@@ -164,6 +164,7 @@ public:
         bool adminRightsGained = false);
 
     bool runningProcessesFound();
+    void setComponentSelection(const QString &id, Qt::CheckState state);
 
 signals:
     void installationStarted();
@@ -186,6 +187,7 @@ public:
     bool m_testChecksum;
     bool m_launchedAsRoot;
     bool m_commandLineInstance;
+    bool m_defaultInstall;
     bool m_userSetBinaryMarker;
     bool m_checkAvailableSpace;
     bool m_completeUninstall;
@@ -247,6 +249,8 @@ private:
     bool calculateComponentsAndRun();
     bool acceptLicenseAgreements() const;
     bool askUserAcceptLicense(const QString &name, const QString &content) const;
+    void printPackageInformation(const QString &name, const Package *update);
+    void printLocalPackageInformation(const KDUpdater::LocalPackage package) const;
 
 private:
     PackageManagerCore *m_core;

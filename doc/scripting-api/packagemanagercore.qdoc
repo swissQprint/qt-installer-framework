@@ -230,9 +230,11 @@
 */
 
 /*!
-    \qmlsignal installer::wizardWidgetInsertionRequested(Widget widget, WizardPage page)
+    \qmlsignal installer::wizardWidgetInsertionRequested(Widget widget,
+        WizardPage page, int position)
 
-    Emitted when a \a widget is inserted into \a page by addWizardPageItem.
+    Emitted when a \a widget is inserted into \a page by addWizardPageItem
+    ordered by \a position.
 */
 
 /*!
@@ -270,6 +272,18 @@
     \qmlsignal installer::coreNetworkSettingsChanged()
 
     Emitted when the network settings are changed.
+*/
+
+/*!
+    \qmlmethod void installer::selectComponent(string id)
+
+    Selects the component with \a id.
+*/
+
+/*!
+    \qmlmethod void installer::deselectComponent(string id)
+
+    Deselects the component with \a id.
 */
 
 /*!
@@ -332,7 +346,7 @@
 */
 
 /*!
-   \qmlmethod void installer::setFileDialogAutomaticAnswer(string identifier, string &value)
+   \qmlmethod void installer::setFileDialogAutomaticAnswer(string identifier, string value)
 
     Automatically sets the existing directory or filename \a value to QFileDialog with the ID
    \a identifier.
@@ -346,6 +360,15 @@
    Removes the automatic answer from QFileDialog with the ID \a identifier.
 
    \sa setFileDialogAutomaticAnswer
+*/
+
+/*!
+   \qmlmethod boolean installer::containsFileDialogAutomaticAnswer(string identifier)
+
+   Returns \c true if QFileDialog  with the ID \a identifier has an automatic answer set.
+
+   \sa setFileDialogAutomaticAnswer
+   \sa removeFileDialogAutomaticAnswer
 */
 
 /*!
@@ -449,10 +472,13 @@
 */
 
 /*!
-    \qmlmethod boolean installer::addWizardPageItem(Component component, string name, int page)
+    \qmlmethod boolean installer::addWizardPageItem(Component component,
+        string name, int page, int position)
 
     Adds the widget with objectName() \a name registered by \a component as a GUI element
-    into the installer's GUI wizard. The widget is added on \a page.
+    into the installer's GUI wizard. The widget is added on \a page ordered by \a position.
+    If several widgets are added to the same page, the widget with lower position number
+    will be inserted on top.
 
     See \l{Controller Scripting} for the possible values of \a page.
 
@@ -533,6 +559,20 @@
     not running.
 
     \note This is implemented in a semi blocking way (to keep the main thread to paint the UI).
+*/
+
+/*!
+    \qmlmethod void installer::setAllowedRunningProcesses(stringlist processes)
+
+    Sets additional \a processes that can run when
+    updating with the maintenance tool.
+*/
+
+/*!
+    \qmlmethod stringlist installer::allowedRunningProcesses()
+
+    Returns processes that are allowed to run when updating with
+    the maintenance tool.
 */
 
 /*!
@@ -796,6 +836,18 @@
     \qmlmethod boolean installer::isUserSetBinaryMarker()
 
     Returns \c true if the magic binary marker has been set by user.
+*/
+
+/*!
+    \qmlmethod boolean installer::isCommandLineDefaultInstall()
+
+    Returns \c true if installation is performed with default components.
+*/
+
+/*!
+    \qmlmethod boolean installer::isCommandLineInstance()
+
+    Returns \c true if running as command line instance.
 */
 
 /*!

@@ -217,6 +217,7 @@ PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core)
     , m_remoteFileEngineHandler(nullptr)
     , m_foundEssentialUpdate(false)
     , m_commandLineInstance(false)
+    , m_defaultInstall(false)
     , m_userSetBinaryMarker(false)
     , m_checkAvailableSpace(true)
     , m_autoAcceptLicenses(false)
@@ -253,6 +254,7 @@ PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core, q
     , m_remoteFileEngineHandler(new RemoteFileEngineHandler)
     , m_foundEssentialUpdate(false)
     , m_commandLineInstance(false)
+    , m_defaultInstall(false)
     , m_userSetBinaryMarker(false)
     , m_checkAvailableSpace(true)
     , m_autoAcceptLicenses(false)
@@ -2011,6 +2013,14 @@ bool PackageManagerCorePrivate::runningProcessesFound()
     return false;
 }
 
+void PackageManagerCorePrivate::setComponentSelection(const QString &id, Qt::CheckState state)
+{
+    ComponentModel *model = m_core->isUpdater() ? m_core->updaterComponentModel() : m_core->defaultComponentModel();
+    const QModelIndex &idx = model->indexFromComponentName(id);
+    if (idx.isValid())
+        model->setData(idx, state, Qt::CheckStateRole);
+}
+
 // -- private
 
 void PackageManagerCorePrivate::deleteMaintenanceTool()
@@ -2598,5 +2608,49 @@ bool PackageManagerCorePrivate::askUserAcceptLicense(const QString &name, const 
     }
 }
 
+void PackageManagerCorePrivate::printPackageInformation(const QString &name, const Package *update)
+{
+    qCDebug(QInstaller::lcPackageName).noquote() << "Id:" << name;
+    qCDebug(QInstaller::lcPackageDisplayname).noquote() << "\tDisplay name:" << update->data(scDisplayName).toString();
+    qCDebug(QInstaller::lcPackageVersion).noquote() << "\tVersion:" << update->data(scVersion).toString();
+    qCDebug(QInstaller::lcPackageDescription).noquote() << "\tDescription:" <<  update->data(scDescription).toString();
+    qCDebug(QInstaller::lcPackageReleasedate).noquote() << "\tRelease date:" << update->data(scReleaseDate).toString();
+    qCDebug(QInstaller::lcPackageDependencies).noquote() << "\tDependencies:" << update->data(scDependencies).toString();
+    qCDebug(QInstaller::lcPackageAutodependon).noquote() << "\tAutodependon:" << update->data(scAutoDependOn).toString();
+    qCDebug(QInstaller::lcPackageVirtual).noquote() << "\tVirtual:" << update->data(scVirtual, false).toString();
+    qCDebug(QInstaller::lcPackageSortingpriority).noquote() << "\tSorting priority:" << update->data(scSortingPriority).toString();
+    qCDebug(QInstaller::lcPackageScript).noquote() << "\tScript:" << update->data(scScript).toString();
+    qCDebug(QInstaller::lcPackageDefault).noquote() << "\tDefault:"<< update->data(scDefault, false).toString();
+    qCDebug(QInstaller::lcPackageEssential).noquote() << "\tEssential:" << update->data(scEssential, false).toString();
+    qCDebug(QInstaller::lcPackageForcedinstallation).noquote() << "\tForced installation:" << update->data(QLatin1String("ForcedInstallation"), false).toString();
+    qCDebug(QInstaller::lcPackageReplaces).noquote() << "\tReplaces:" << update->data(scReplaces).toString();
+    qCDebug(QInstaller::lcPackageDownloadableArchives).noquote() << "\tDownloadable archives:" << update->data(scDownloadableArchives).toString();
+    qCDebug(QInstaller::lcPackageRequiresAdminRights).noquote() << "\tRequires admin rights:" << update->data(scRequiresAdminRights).toString();
+    qCDebug(QInstaller::lcPackageCheckable).noquote() << "\tCheckable:" << update->data(scCheckable).toString();
+    qCDebug(QInstaller::lcPackageLicenses).noquote() << "\tLicenses:" << update->data(QLatin1String("Licenses")).toString();
+    qCDebug(QInstaller::lcPackageCompressedSize).noquote() << "\tCompressed size:" << update->data(QLatin1String("CompressedSize")).toString();
+    qCDebug(QInstaller::lcPackageUncompressedSize).noquote() << "\tUncompressed size:" << update->data(QLatin1String("UncompressedSize")).toString();
+
+    //Check if package already installed
+    LocalPackagesHash installedPackages = this->localInstalledPackages();
+    if (installedPackages.contains(name))
+        qCDebug(QInstaller::lcPackageInstalledVersion).noquote() << "\tInstalled version:" << installedPackages.value(name).version;
+}
+
+void PackageManagerCorePrivate::printLocalPackageInformation(const KDUpdater::LocalPackage package) const
+{
+    qCDebug(QInstaller::lcPackageName).noquote() << "Id:" << package.name;
+    qCDebug(QInstaller::lcPackageDisplayname).noquote() << "\tDisplay name:" << package.title;
+    qCDebug(QInstaller::lcPackageVersion).noquote() << "\tVersion:" << package.version;
+    qCDebug(QInstaller::lcPackageDescription).noquote() << "\tDescription:" <<  package.description;
+    qCDebug(QInstaller::lcPackageDependencies).noquote() << "\tDependencies:" << package.dependencies;
+    qCDebug(QInstaller::lcPackageAutodependon).noquote() << "\tAutodependon:" << package.autoDependencies;
+    qCDebug(QInstaller::lcPackageVirtual).noquote() << "\tVirtual:" << package.virtualComp;
+    qCDebug(QInstaller::lcPackageForcedinstallation).noquote() << "\tForced installation:" << package.forcedInstallation;
+    qCDebug(QInstaller::lcPackageCheckable).noquote() << "\tCheckable:" << package.checkable;
+    qCDebug(QInstaller::lcPackageUncompressedSize).noquote() << "\tUncompressed size:" << package.uncompressedSize;
+    qCDebug(QInstaller::lcPackageInstallDate).noquote() << "\tInstalled:" << package.installDate;
+    qCDebug(QInstaller::lcPackageUpdateDate).noquote() << "\tLast updated:" << package.lastUpdateDate;
+}
 
 } // namespace QInstaller

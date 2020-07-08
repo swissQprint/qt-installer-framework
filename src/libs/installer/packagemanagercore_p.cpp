@@ -940,10 +940,7 @@ void PackageManagerCorePrivate::stopProcessesForUpdates(const QList<Component*> 
             MessageBoxHandler::warning(MessageBoxHandler::currentBestSuitParent(),
             QLatin1String("stopProcessesForUpdates"), tr("Stop Processes"), tr("These processes "
             "should be stopped to continue:\n\n%1").arg(QDir::toNativeSeparators(processes
-            .join(QLatin1String("\n")))), QMessageBox::Retry | QMessageBox::Ignore
-            | QMessageBox::Cancel, QMessageBox::Cancel);
-        if (button == QMessageBox::Ignore)
-            return;
+            .join(QLatin1String("\n")))), QMessageBox::Retry | QMessageBox::Cancel, QMessageBox::Cancel);
         if (button == QMessageBox::Cancel) {
             m_core->setCanceled();
             throw Error(tr("Installation canceled by user"));

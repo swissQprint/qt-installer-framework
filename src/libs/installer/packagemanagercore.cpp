@@ -1017,6 +1017,12 @@ bool PackageManagerCore::updateSqpDefaultUrlQueryString() {
     return setValue(scUrlQueryString, defUrl);
 }
 
+QStringList PackageManagerCore::findExecutablesRecursive(const QString& directoryPath) const {
+    QStringList result;
+    d->findExecutablesRecursive(directoryPath, QStringList(), &result);
+    return result;
+}
+
 /*!
     Checks whether the target directory \a targetDirectory exists and has contents:
     \list

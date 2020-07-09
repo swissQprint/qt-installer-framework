@@ -253,6 +253,7 @@ int main(int argc, char *argv[])
         }
         if (QInstaller::isVerbose()) {
             std::cout << VERSION << std::endl << BUILDDATE << std::endl << SHA << std::endl;
+            std::cout << "SQP: " << SQP_IFW_VERSION_STRING  << std::endl;
         } else {
 #ifdef Q_OS_WIN
             // Check if installer is started from console. If so, restart the installer so it

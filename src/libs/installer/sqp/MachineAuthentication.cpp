@@ -27,7 +27,7 @@ MachineAuthentication::MachineAuthentication(
         }
     );
     connect(reply, &QNetworkReply::sslErrors, this,
-        [reply](const QList<QSslError> &errors){
+        [reply](const QList<QSslError> &errors) {
             QString msg;
             foreach (const auto& e, errors) {
                 msg += e.errorString() + QLatin1String(" ");
@@ -41,7 +41,7 @@ MachineAuthentication::MachineAuthentication(
 
 MachineAuthentication::~MachineAuthentication() {  }
 
-std::unique_ptr<MachineAuthentication> MachineAuthentication::authenticate(const QString& machineToken) {
+MachineAuthentication::UniqueAuthentication MachineAuthentication::authenticate(const QString& machineToken) {
     return std::make_unique<MachineAuthentication>(machineToken);
 }
 

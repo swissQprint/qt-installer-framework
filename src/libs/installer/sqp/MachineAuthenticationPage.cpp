@@ -7,8 +7,6 @@
 #include <QIntValidator>
 #include <QMessageBox>
 
-constexpr int FEEDBACK_TIMEOUT = 5000; // ms
-
 namespace QInstaller {
 namespace sqp {
 
@@ -74,16 +72,28 @@ bool MachineAuthenticationPage::startAuthentication(const QString &token)
     m_auth = MachineAuthentication::authenticate(authUrl);
     connect(m_auth.get(), &MachineAuthentication::finished, this,
         [&](){
+            const auto& result = m_auth->result();
             if (m_auth->isSuccess()) {
                 emit throwEvent(Event::Success);
             } else {
                 emit throwEvent(Event::Failure);
-                const auto& result = m_auth->result();
+                //: Title of the messagebox to inform the user that the entered machine token could not be authenticated on the server.
+                const auto t = tr("Authentication Failed");
+                //: Message within the messagebox to inform the user that the entered machine token could not be authenticated on the server.
+                auto m = tr("Could not authenticate machine token.");
                 if (result.hasValue()) {
-                    qCCritical(QInstaller::lcInstallerInstallLog)
-                        << result.value();
-                    showFeedback(tr("Authentication failed. View log for details."), FEEDBACK_TIMEOUT);
+                    auto r = result.value();
+                    r.replace(QLatin1String("\\n"), QLatin1String("\n"));
+                    m += QLatin1String("\n\n") + r;
                 }
+                QMessageBox::warning(this, t, m, QMessageBox::Ok);
+            }
+            if (result.hasValue()) {
+                qCInfo(QInstaller::lcInstallerInstallLog)
+                    << result.value();
+            } else {
+                qCInfo(QInstaller::lcInstallerInstallLog)
+                    << "No result from authentication request.";
             }
         }
     );
@@ -121,12 +131,6 @@ void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event eve
             }
             break;
     }
-}
-
-void MachineAuthenticationPage::showFeedback(const QString &msg, int timeout)
-{
-    ui.lblFeedback->setText(msg);
-    QTimer::singleShot(timeout, ui.lblFeedback, &QLabel::clear);
 }
 
 QString MachineAuthenticationPage::token() const

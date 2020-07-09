@@ -27,6 +27,7 @@
 **************************************************************************/
 
 #include "settingsdialog.h"
+#include "sqp/SettingsWidget.hpp"
 #include "ui_settingsdialog.h"
 
 #include <packagemanagercore.h>
@@ -248,6 +249,8 @@ SettingsDialog::SettingsDialog(PackageManagerCore *core, QWidget *parent)
         m_ui->m_repositories->setParent(this);
         m_ui->m_repositories->setVisible(settings.repositorySettingsPageVisible());
     }
+
+    new sqp::SettingsWidget(*m_core, m_ui->tabWidget);
 }
 
 void SettingsDialog::accept()

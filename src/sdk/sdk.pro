@@ -92,9 +92,11 @@ exists($$LRELEASE) {
     }
 }
 
-FORMS += settingsdialog.ui 
+FORMS += settingsdialog.ui  \
+    sqp/SettingsWidget.ui
 
 HEADERS += \
+    sqp/SettingsWidget.hpp \
            tabcontroller.h \
            installerbasecommons.h \
            settingsdialog.h \
@@ -106,6 +108,7 @@ HEADERS += \
 SOURCES = \
           main.cpp \
           installerbase.cpp \
+          sqp/SettingsWidget.cpp \
           tabcontroller.cpp \
           installerbasecommons.cpp \
           settingsdialog.cpp \

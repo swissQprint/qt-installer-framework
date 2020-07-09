@@ -41,9 +41,11 @@ class ProductKeyCheckPrivate
         ProductKeyCheckPrivate() {  }
         virtual ~ProductKeyCheckPrivate() {  }
 
-        void registerSqpPages() {
+        void registerSqpPages(QInstaller::PackageManagerCore& core) {
             registerPage<sqp::WelcomePage>(PackageManagerCore::SqpWelcomePage);
-            registerPage<sqp::MachineAuthenticationPage>(PackageManagerCore::SqpMachineAuthPage);
+            if (core.isInstaller()) {
+                registerPage<sqp::MachineAuthenticationPage>(PackageManagerCore::SqpMachineAuthPage);
+            }
         }
 
         QList<int> registeredPages() const {
@@ -79,8 +81,7 @@ ProductKeyCheck *ProductKeyCheck::instance()
 
 void ProductKeyCheck::init(QInstaller::PackageManagerCore *core)
 {
-    Q_UNUSED(core)
-    d->registerSqpPages();
+    d->registerSqpPages(*core);
 }
 
 bool ProductKeyCheck::hasValidKey()

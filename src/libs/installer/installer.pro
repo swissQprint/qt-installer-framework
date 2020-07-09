@@ -15,7 +15,8 @@ include(../../../installerfw.pri)
 #   ...
 #   your files if needed
 HEADERS += productkeycheck.h \
-    sqp/MachineAuthentication.hpp
+    sqp/MachineAuthentication.hpp \
+    sqp/MachineAuthenticationTokenDialog.hpp
 
 !isEmpty(PRODUCTKEYCHECK_PRI_FILE) {
     # use undocumented no_batch config which disable the implicit rules on msvc compilers
@@ -154,6 +155,7 @@ SOURCES += packagemanagercore.cpp \
     repository.cpp \
     fileutils.cpp \
     sqp/MachineAuthentication.cpp \
+    sqp/MachineAuthenticationTokenDialog.cpp \
     utils.cpp \
     component.cpp \
     scriptengine.cpp \
@@ -231,6 +233,7 @@ SOURCES += packagemanagercore.cpp \
 
 FORMS += proxycredentialsdialog.ui \
     serverauthenticationdialog.ui \
+    sqp/MachineAuthenticationTokenDialog.ui \
     sqp/WelcomePage.ui \
     sqp/MachineAuthenticationPage.ui
 

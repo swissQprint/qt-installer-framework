@@ -54,7 +54,7 @@ InstallerGui::InstallerGui(PackageManagerCore *core)
     setPage(PackageManagerCore::ComponentSelection, new ComponentSelectionPage(core));
     setPage(PackageManagerCore::LicenseCheck, new LicenseAgreementPage(core));
 #ifdef Q_OS_WIN
-    //setPage(PackageManagerCore::StartMenuSelection, new StartMenuDirectoryPage(core));
+    setPage(PackageManagerCore::StartMenuSelection, new StartMenuDirectoryPage(core));
 #endif
     setPage(PackageManagerCore::ReadyForInstallation, new ReadyForInstallationPage(core));
     setPage(PackageManagerCore::PerformInstallation, new PerformInstallationPage(core));

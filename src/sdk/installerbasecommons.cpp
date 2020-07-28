@@ -41,6 +41,7 @@ using namespace QInstaller;
 InstallerGui::InstallerGui(PackageManagerCore *core)
     : PackageManagerGui(core, nullptr)
 {
+    core->setValue(scAllUsers, scTrue);
     ProductKeyCheck *checker = ProductKeyCheck::instance();
     foreach (const int id, checker->registeredPages()) {
         PackageManagerPage *page = PackageManagerPageFactory::instance().create(id, core);

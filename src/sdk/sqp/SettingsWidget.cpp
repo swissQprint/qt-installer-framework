@@ -6,6 +6,8 @@
 #include <QMessageBox>
 #include <QTabWidget>
 
+#include "build_info.h"
+
 using QInstaller::sqp::installsettings::MachineAuthenticationUrl;
 using QInstaller::sqp::installsettings::MachineToken;
 using QInstaller::sqp::MachineAuthenticationTokenDialog;
@@ -27,6 +29,8 @@ SettingsWidget::SettingsWidget(
     connect(ui.btnChangeToken, &QPushButton::clicked,
             this, &SettingsWidget::changeMachineAuthToken);
     ui.txtToken->setText(core.value(MachineToken));
+    ui.lblQtVersion->setText(QLatin1String(QT_VERSION_STR));
+    ui.lblIFWVersion->setText(QLatin1String(SQP_IFW_VERSION_STRING));
 }
 
 SettingsWidget::~SettingsWidget() {  }

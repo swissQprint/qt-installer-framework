@@ -10,7 +10,6 @@ namespace sqp {
 namespace installsettings {
     // Keys
     static const QLatin1String MachineToken("SqpMachineToken");
-    static const QLatin1String BundleVersion("SqpBundleVersion");
     static const QLatin1String BaseRepositoryUrl("SqpBaseRepositoryUrl");
     static const QLatin1String MachineAuthenticationUrl("SqpMachineAuthenticationUrl");
     static const QLatin1String ReleaseChannel("SqpReleaseChannel");

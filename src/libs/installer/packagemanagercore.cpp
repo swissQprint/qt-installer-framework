@@ -997,7 +997,7 @@ QString PackageManagerCore::extendedUrlQueryString(const QString& key, const QSt
 QString PackageManagerCore::generateSqpDefaultUrlQueryString() const {
     SystemInfo system;
     QString url; const QChar sep = QLatin1Char('&');
-    url += QLatin1String("bundle_version=%1").arg(this->value(sqp::installsettings::BundleVersion));
+    url += QLatin1String("bundle_version=%1").arg(this->value(scVersion));
     url += sep;
     url += QLatin1String("os_version=%1").arg(system.productVersion());
     url += sep;

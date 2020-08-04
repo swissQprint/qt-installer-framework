@@ -317,6 +317,8 @@ public:
     static QStringList parseNames(const QStringList &requirements);
     void commitSessionOperations();
 
+    Q_INVOKABLE QString targetDirectory() const;
+
 public Q_SLOTS:
     bool runInstaller();
     bool runUninstaller();

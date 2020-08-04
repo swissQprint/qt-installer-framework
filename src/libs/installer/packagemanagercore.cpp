@@ -1779,6 +1779,10 @@ bool PackageManagerCore::addWizardPageItem(Component *component, const QString &
     return false;
 }
 
+QString PackageManagerCore::targetDirectory() const {
+    return QDir::toNativeSeparators(this->value(scTargetDir));
+}
+
 /*!
     \fn PackageManagerCore::removeWizardPageItem(QInstaller::Component * component, const QString & name)
 

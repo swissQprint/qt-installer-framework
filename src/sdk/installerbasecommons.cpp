@@ -33,6 +33,8 @@
 #include <productkeycheck.h>
 #include <settings.h>
 
+#include <sqp/installsettings.hpp>
+
 using namespace QInstaller;
 
 
@@ -49,13 +51,18 @@ InstallerGui::InstallerGui(PackageManagerCore *core)
             "constructed.").arg(id)));
         setPage(id, page);
     }
-
+    const auto advancedMode = core->containsValue(sqp::installsettings::Mode) &&
+                              core->value(sqp::installsettings::Mode).toLower() == sqp::installsettings::ModeAdvanced;
     setPage(PackageManagerCore::Introduction, new IntroductionPage(core));
-    setPage(PackageManagerCore::TargetDirectory, new TargetDirectoryPage(core));
+    if (advancedMode) {
+        setPage(PackageManagerCore::TargetDirectory, new TargetDirectoryPage(core));
+    }
     setPage(PackageManagerCore::ComponentSelection, new ComponentSelectionPage(core));
     setPage(PackageManagerCore::LicenseCheck, new LicenseAgreementPage(core));
 #ifdef Q_OS_WIN
-    setPage(PackageManagerCore::StartMenuSelection, new StartMenuDirectoryPage(core));
+    if (advancedMode) {
+        setPage(PackageManagerCore::StartMenuSelection, new StartMenuDirectoryPage(core));
+    }
 #endif
     setPage(PackageManagerCore::ReadyForInstallation, new ReadyForInstallationPage(core));
     setPage(PackageManagerCore::PerformInstallation, new PerformInstallationPage(core));

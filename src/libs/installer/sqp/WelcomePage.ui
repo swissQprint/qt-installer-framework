@@ -15,9 +15,9 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QLabel" name="label">
+    <widget class="QLabel" name="lblMessage">
      <property name="text">
-      <string>This Maintenance Tool privides you with an option to add, update or remove swissQprint software components.</string>
+      <string/>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
@@ -25,7 +25,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="label_2">
+    <widget class="QLabel" name="lblSqp">
      <property name="text">
       <string>&lt;a href=&quot;http://www.swissqprint.com/en/&quot;&gt;swissqprint.com&lt;/a&gt;</string>
      </property>
@@ -41,7 +41,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="label_3">
+    <widget class="QLabel" name="lblExtranet">
      <property name="text">
       <string>&lt;a href=&quot;https://extranet.swissqprint.com/en/login&quot;&gt;swissQprint extranet&lt;/a&gt;</string>
      </property>

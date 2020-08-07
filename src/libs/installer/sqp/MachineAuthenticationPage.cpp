@@ -24,9 +24,13 @@ MachineAuthenticationPage::MachineAuthenticationPage(PackageManagerCore *core) :
     connect(this, &MachineAuthenticationPage::throwEvent,
             this, &MachineAuthenticationPage::handleEvent,
             Qt::QueuedConnection);
+    connect(core, &PackageManagerCore::installationFinished, this, [core](){
+        const auto t = core->value(sqp::installsettings::MachineToken);
+        sqp::installsettings::setValue(sqp::installsettings::MachineToken, t);
+    });
 }
 
-MachineAuthenticationPage::~MachineAuthenticationPage() {  }
+MachineAuthenticationPage::~MachineAuthenticationPage() { }
 
 bool MachineAuthenticationPage::isComplete() const
 {
@@ -38,7 +42,18 @@ void MachineAuthenticationPage::initializePage()
 {
     PackageManagerPage::initializePage();
     auto core = packageManagerCore();
-    ui.token->setText(core->value(sqp::installsettings::MachineToken));
+    // Zuerst wird versucht, den Token aus den Installer-Einstellungen zu laden. Denn diese
+    // können über die Programmargumente manipuliert werden.
+    auto token = core->value(sqp::installsettings::MachineToken);
+    // Ist kein Token gesetzt, suchen wir ihn auf den im System abgelegten Einstellungen.
+    // Diese Einstellungen überleben eine Deinstallation. Bei der nächsten Installation ohne
+    // explizite Angabe eines Tokens wird versucht, diese Einstellungen zu lesen. Ist auch
+    // dort keiner vorhanden, ja dann fehlt halt die Voreinstellung diesbezüglich und der
+    // Client muss den Token vom Extranet beziehen.
+    if (token.isEmpty()) {
+        token = sqp::installsettings::value(sqp::installsettings::MachineToken).toString();
+    }
+    ui.token->setText(token);
 }
 
 void MachineAuthenticationPage::cleanupPage()
@@ -100,8 +115,7 @@ bool MachineAuthenticationPage::startAuthentication(const QString &token)
     return true;
 }
 
-void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event event)
-{
+void MachineAuthenticationPage::handleEvent(MachineAuthenticationPage::Event event) {
     switch (m_state) {
         case State::Unauthenticated:
             if (event == Event::Authenticate) {

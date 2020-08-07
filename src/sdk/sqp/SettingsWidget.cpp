@@ -42,6 +42,7 @@ void SettingsWidget::changeMachineAuthToken() {
         const auto& token = dialog.result().value();
         const auto oldToken = m_core.value(MachineToken);
         if (m_core.setValue(MachineToken, token)) {
+            QInstaller::sqp::installsettings::setValue(MachineToken, token);
             m_core.updateSqpDefaultUrlQueryString();
             ui.txtToken->setText(token);
             m_core.writeMaintenanceConfigFiles();

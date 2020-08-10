@@ -53,6 +53,19 @@ InstallerGui::InstallerGui(PackageManagerCore *core)
     }
     const auto advancedMode = core->containsValue(sqp::installsettings::Mode) &&
                               core->value(sqp::installsettings::Mode).toLower() == sqp::installsettings::ModeAdvanced;
+    // Wird der Installer mit dem Advanced-Mode gestartet, zeigen wir die zusätzlichen Pages für
+    // Installationsverzeichnis und Startmenüeintrag an.
+    // Die Page für den Startmenüeintrag hat zusätzliche Logik drin, die ein einzelnes Directory als Bezeichner beim
+    // Verlassen der Page in einen kompletten Pfad umwandelt. Deswegen müssen wir hier diesen Schritt vorzeitig aus-
+    // führen, wenn wir uns nicht im Advanced-Mode befinden.
+    if (!advancedMode) {
+        QString startMenuPath = core->value(QLatin1String("UserStartMenuProgramsPath"));
+        if (core->value(scAllUsers, scFalse) == scTrue) {
+            startMenuPath = core->value(scAllUsersStartMenuProgramsPath);
+        }
+        core->setValue(scStartMenuDir, startMenuPath + QDir::separator() + core->value(scStartMenuDir, QLatin1String("swissQprint")));
+    }
+
     setPage(PackageManagerCore::Introduction, new IntroductionPage(core));
     if (advancedMode) {
         setPage(PackageManagerCore::TargetDirectory, new TargetDirectoryPage(core));

@@ -10,9 +10,6 @@
     <height>278</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>WizardPage</string>
-  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QLabel" name="lblMessage">
@@ -27,7 +24,7 @@
    <item>
     <widget class="QLabel" name="lblSqp">
      <property name="text">
-      <string>&lt;a href=&quot;http://www.swissqprint.com/en/&quot;&gt;swissqprint.com&lt;/a&gt;</string>
+      <string notr="true">&lt;a href=&quot;http://www.swissqprint.com/en/&quot;&gt;swissqprint.com&lt;/a&gt;</string>
      </property>
      <property name="textFormat">
       <enum>Qt::RichText</enum>
@@ -43,7 +40,7 @@
    <item>
     <widget class="QLabel" name="lblExtranet">
      <property name="text">
-      <string>&lt;a href=&quot;https://extranet.swissqprint.com/en/login&quot;&gt;swissQprint extranet&lt;/a&gt;</string>
+      <string notr="true">&lt;a href=&quot;https://extranet.swissqprint.com/en/login&quot;&gt;swissQprint extranet&lt;/a&gt;</string>
      </property>
      <property name="textFormat">
       <enum>Qt::RichText</enum>

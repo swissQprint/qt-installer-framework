@@ -2,17 +2,19 @@
 #include "constants.h"
 #include <QDebug>
 
+#include "ui_welcomepage.h"
+
 namespace QInstaller {
 namespace sqp {
 
 WelcomePage::WelcomePage(PackageManagerCore *core)
-    : PackageManagerPage(core)
+    : PackageManagerPage(core), ui(new Ui::WelcomePage())
 {
-    ui.setupUi(this);
+    ui->setupUi(this);
     setObjectName(QLatin1String("WelcomePage"));
-    ui.lblMessage->setObjectName(QLatin1String("MessageLabel"));
-    ui.lblSqp->setObjectName(QLatin1String("SwissQprintLinkLabel"));
-    ui.lblExtranet->setObjectName(QLatin1String("SwissQprintExtranetLinkLabel"));
+    ui->lblMessage->setObjectName(QLatin1String("MessageLabel"));
+    ui->lblSqp->setObjectName(QLatin1String("SwissQprintLinkLabel"));
+    ui->lblExtranet->setObjectName(QLatin1String("SwissQprintExtranetLinkLabel"));
 
     const auto t = tr("Welcome to %1").arg(core->value(scTitle));
     setColoredTitle(t);
@@ -21,10 +23,12 @@ WelcomePage::WelcomePage(PackageManagerCore *core)
     if (core->isInstaller()) {
         message = tr("This installer provides a range of swissQprint software components.");
     }
-    ui.lblMessage->setText(message);
+    ui->lblMessage->setText(message);
 }
 
-WelcomePage::~WelcomePage() {  }
+WelcomePage::~WelcomePage() {
+    delete ui;
+}
 
 } // namespace sqp
 } // namespace QInstaller

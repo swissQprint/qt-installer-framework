@@ -46,7 +46,7 @@ void SettingsWidget::changeMachineAuthToken() {
             m_core.updateSqpDefaultUrlQueryString();
             ui.txtToken->setText(token);
             m_core.writeMaintenanceConfigFiles();
-            qCInfo(QInstaller::lcGeneral).noquote() << "Changed machine token from" << oldToken << "to" << token;
+            qCInfo(QInstaller::lcInstallerInstallLog).noquote() << "Changed machine token from" << oldToken << "to" << token;
             //: Title of message box to confirm machine token change.
             const auto t = tr("Token Changed");
             //: Title of message box to confirm machine token change.

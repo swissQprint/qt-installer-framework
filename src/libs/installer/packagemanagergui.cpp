@@ -308,10 +308,9 @@ PackageManagerGui::PackageManagerGui(PackageManagerCore *core, QWidget *parent)
 
 #ifndef Q_OS_MACOS
     setWindowIcon(QIcon(m_core->settings().installerWindowIcon()));
-#else
+#endif
     if (!m_core->settings().wizardShowPageList())
         setPixmap(QWizard::BackgroundPixmap, m_core->settings().background());
-#endif
 #ifdef Q_OS_LINUX
     setWizardStyle(QWizard::ModernStyle);
     setSizeGripEnabled(true);
@@ -328,11 +327,11 @@ PackageManagerGui::PackageManagerGui(PackageManagerCore *core, QWidget *parent)
             if (sheet.open(QIODevice::ReadOnly)) {
                 setStyleSheet(QString::fromLatin1(sheet.readAll()));
             } else {
-                qCWarning(QInstaller::lcInstallerInstallLog) << "The specified style sheet file "
+                qCWarning(QInstaller::lcDeveloperBuild) << "The specified style sheet file "
                     "can not be opened.";
             }
         } else {
-            qCWarning(QInstaller::lcInstallerInstallLog) << "A style sheet file is specified, "
+            qCWarning(QInstaller::lcDeveloperBuild) << "A style sheet file is specified, "
                 "but it does not exist.";
         }
     }
@@ -545,7 +544,7 @@ void PackageManagerGui::setTextItems(QObject *object, const QStringList &items)
         return;
     }
 
-    qCWarning(QInstaller::lcInstallerInstallLog) << "Cannot set text items on object of type"
+    qCWarning(QInstaller::lcDeveloperBuild) << "Cannot set text items on object of type"
              << object->metaObject()->className() << ".";
 }
 
@@ -602,7 +601,7 @@ void PackageManagerGui::clickButton(int wb, int delay)
     if (QAbstractButton *b = button(static_cast<QWizard::WizardButton>(wb)))
         QTimer::singleShot(delay, b, &QAbstractButton::click);
     else
-        qCWarning(QInstaller::lcInstallerInstallLog) << "Button with type: " << d->buttonType(wb) << "not found!";
+        qCWarning(QInstaller::lcDeveloperBuild) << "Button with type: " << d->buttonType(wb) << "not found!";
 }
 
 /*!
@@ -616,7 +615,7 @@ void PackageManagerGui::clickButton(const QString &objectName, int delay) const
     if (button)
         QTimer::singleShot(delay, button, &QAbstractButton::click);
     else
-        qCWarning(QInstaller::lcInstallerInstallLog) << "Button with objectname: " << objectName << "not found!";
+        qCWarning(QInstaller::lcDeveloperBuild) << "Button with objectname: " << objectName << "not found!";
 }
 
 /*!
@@ -635,7 +634,7 @@ bool PackageManagerGui::isButtonEnabled(int wb)
     if (QAbstractButton *b = button(static_cast<QWizard::WizardButton>(wb)))
         return b->isEnabled();
 
-    qCWarning(QInstaller::lcInstallerInstallLog) << "Button with type: " << d->buttonType(wb) << "not found!";
+    qCWarning(QInstaller::lcDeveloperBuild) << "Button with type: " << d->buttonType(wb) << "not found!";
     return false;
 }
 
@@ -668,7 +667,7 @@ void PackageManagerGui::loadControlScript(const QString &scriptPath)
 {
     d->m_controlScriptContext = m_core->controlScriptEngine()->loadInContext(
         QLatin1String("Controller"), scriptPath);
-    qCDebug(QInstaller::lcGeneral) << "Loaded control script" << scriptPath;
+    qCDebug(QInstaller::lcInstallerInstallLog) << "Loaded control script" << scriptPath;
 }
 
 /*!
@@ -682,7 +681,7 @@ void PackageManagerGui::callControlScriptMethod(const QString &methodName)
         const QJSValue returnValue = m_core->controlScriptEngine()->callScriptMethod(
             d->m_controlScriptContext, methodName);
         if (returnValue.isUndefined()) {
-            qCDebug(QInstaller::lcGeneral) << "Control script callback" << methodName
+            qCDebug(QInstaller::lcDeveloperBuild) << "Control script callback" << methodName
                 << "does not exist.";
             return;
         }
@@ -828,6 +827,12 @@ void PackageManagerGui::wizardWidgetInsertionRequested(QWidget *widget,
 void PackageManagerGui::wizardWidgetRemovalRequested(QWidget *widget)
 {
     Q_ASSERT(widget);
+
+    const QList<int> pages = pageIds();
+    foreach (int id, pages) {
+        PackageManagerPage *managerPage = qobject_cast<PackageManagerPage *>(page(id));
+        managerPage->removeCustomWidget(widget);
+    }
     widget->setParent(nullptr);
     packageManagerCore()->controlScriptEngine()->removeFromGlobalObject(widget);
     packageManagerCore()->componentScriptEngine()->removeFromGlobalObject(widget);
@@ -871,7 +876,7 @@ QWidget *PackageManagerGui::pageByObjectName(const QString &name) const
         if (p && p->objectName() == name)
             return p;
     }
-    qCWarning(QInstaller::lcInstallerInstallLog) << "No page found for object name" << name;
+    qCDebug(QInstaller::lcDeveloperBuild) << "No page found for object name" << name;
     return nullptr;
 }
 
@@ -899,7 +904,7 @@ QWidget *PackageManagerGui::pageWidgetByObjectName(const QString &name) const
             return dp->widget();
         return p;
     }
-    qCWarning(QInstaller::lcInstallerInstallLog) << "No page found for object name" << name;
+    qCDebug(QInstaller::lcDeveloperBuild) << "No page found for object name" << name;
     return nullptr;
 }
 
@@ -1356,6 +1361,18 @@ bool PackageManagerPage::validatePage()
     return true;
 }
 
+/*!
+    \internal
+*/
+void PackageManagerPage::removeCustomWidget(const QWidget *widget)
+{
+    for (auto it = m_customWidgets.begin(); it != m_customWidgets.end();) {
+        if (it.value() == widget)
+            it = m_customWidgets.erase(it);
+        else
+            ++it;
+    }
+}
 /*!
     Inserts \a widget at the position specified by \a offset in relation to
     another widget specified by \a siblingName. The default position is directly
@@ -2207,7 +2224,7 @@ bool ComponentSelectionPage::addVirtualComponentToUninstall(const QString &name)
     if (component && component->isInstalled() && component->isVirtual()) {
         component->setCheckState(Qt::Unchecked);
         core->componentsToInstallNeedsRecalculation();
-        qCDebug(QInstaller::lcGeneral) << "Virtual component " << name << " was selected for uninstall by script.";
+        qCDebug(QInstaller::lcDeveloperBuild) << "Virtual component " << name << " was selected for uninstall by script.";
         return true;
     }
     return false;
@@ -2652,6 +2669,7 @@ PerformInstallationPage::PerformInstallationPage(PackageManagerCore *core)
     updatePageListTitle();
 
     m_performInstallationForm->setupUi(this);
+    m_imageChangeTimer.setInterval(10000);
 
     connect(ProgressCoordinator::instance(), &ProgressCoordinator::detailTextChanged,
         m_performInstallationForm, &PerformInstallationForm::appendProgressDetails);
@@ -2677,6 +2695,9 @@ PerformInstallationPage::PerformInstallationPage(PackageManagerCore *core)
 
     connect(core, &PackageManagerCore::installerBinaryMarkerChanged,
             this, &PerformInstallationPage::updatePageListTitle);
+
+    connect(&m_imageChangeTimer, &QTimer::timeout,
+            this, &PerformInstallationPage::changeCurrentImage);
 
     m_performInstallationForm->setDetailsWidgetVisible(true);
 
@@ -2713,6 +2734,11 @@ void PerformInstallationPage::entering()
     m_performInstallationForm->enableDetails();
     emit setAutomatedPageSwitchEnabled(true);
 
+    changeCurrentImage();
+    // No need to start the timer if we only have one, or no images
+    if (packageManagerCore()->settings().productImages().count() > 1)
+        m_imageChangeTimer.start();
+
     if (isVerbose()) {
         m_performInstallationForm->toggleDetails();
     }
@@ -2741,6 +2767,7 @@ void PerformInstallationPage::entering()
 void PerformInstallationPage::leaving()
 {
     setButtonText(QWizard::CommitButton, gui()->defaultButtonText(QWizard::CommitButton));
+    m_imageChangeTimer.stop();
 }
 
 /*!
@@ -2765,6 +2792,27 @@ void PerformInstallationPage::updatePageListTitle()
 void PerformInstallationPage::setTitleMessage(const QString &title)
 {
     setColoredTitle(title);
+}
+
+/*!
+    Changes the currently shown product image to the next available
+    image from installer configuration.
+*/
+void PerformInstallationPage::changeCurrentImage()
+{
+    const QStringList productImages = packageManagerCore()->settings().productImages();
+    if (productImages.isEmpty())
+        return;
+
+    const QString nextImage = (m_currentImage.isEmpty() || m_currentImage == productImages.last())
+       ? productImages.first()
+       : productImages.at(productImages.indexOf(m_currentImage) + 1);
+
+    // Do not update the pixmap if there was only one image available
+    if (nextImage != m_currentImage) {
+        m_performInstallationForm->setImageFromFileName(nextImage);
+        m_currentImage = nextImage;
+    }
 }
 
 // -- private slots

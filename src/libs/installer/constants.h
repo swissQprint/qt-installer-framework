@@ -90,6 +90,7 @@ static const QLatin1String scTitleColor("TitleColor");
 static const QLatin1String scWizardDefaultWidth("WizardDefaultWidth");
 static const QLatin1String scWizardDefaultHeight("WizardDefaultHeight");
 static const QLatin1String scWizardShowPageList("WizardShowPageList");
+static const QLatin1String scProductImages("ProductImages");
 static const QLatin1String scUrlQueryString("UrlQueryString");
 static const QLatin1String scProductUUID("ProductUUID");
 static const QLatin1String scAllUsers("AllUsers");
@@ -160,6 +161,7 @@ static const QLatin1String scMessageAutomaticAnswer("auto-answer");
 static const QLatin1String scMessageDefaultAnswer("default-answer");
 static const QLatin1String scAcceptLicenses("accept-licenses");
 static const QLatin1String scFileDialogAutomaticAnswer("file-query");
+static const QLatin1String scConfirmCommand("confirm-command");
 
 // Misc installation options
 static const QLatin1String scRootShort("t");

@@ -196,6 +196,8 @@ public:
     Q_INVOKABLE bool containsFileDialogAutomaticAnswer(const QString &identifier) const;
     QHash<QString, QString> fileDialogAutomaticAnswers() const;
 
+    void setAutoConfirmCommand();
+
     quint64 size(QInstaller::Component *component, const QString &value) const;
 
     Q_INVOKABLE bool isFileExtensionRegistered(const QString &extension) const;
@@ -270,6 +272,8 @@ public:
 
     bool isVerbose() const;
     void setVerbose(bool on);
+
+    uint verboseLevel() const;
 
     Q_INVOKABLE bool gainAdminRights();
     Q_INVOKABLE void dropAdminRights();

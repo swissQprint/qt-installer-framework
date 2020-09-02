@@ -72,7 +72,9 @@ CommandLineParser::CommandLineParser()
     // Output related options
     m_parser.addOption(QCommandLineOption(QStringList()
         << CommandLineOptions::scVerboseShort << CommandLineOptions::scVerboseLong,
-        QLatin1String("Verbose mode. Prints out more information.")));
+        QString::fromLatin1("Verbose mode. Prints out more information. Adding -%1 or --%2 more "
+                      "than once increases verbosity.").arg(CommandLineOptions::scVerboseShort,
+                      CommandLineOptions::scVerboseLong)));
     m_parser.addOption(QCommandLineOption(QStringList()
         << CommandLineOptions::scLoggingRulesShort << CommandLineOptions::scLoggingRulesLong,
         QLatin1String("Enables logging according to passed rules. Comma separated logging rules "
@@ -175,6 +177,8 @@ CommandLineParser::CommandLineParser()
                        "Several identifier=value pairs can be given separated with comma, "
                        "for example --file-query filedialog.id=C:\Temp,filedialog.id2=C:\Temp2"),
          QLatin1String("identifier=value")));
+    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scConfirmCommand,
+         QLatin1String("[CLI] Confirms starting of installation, update or removal of components without user input.")));
 
     // Developer options
     m_parser.addOption(QCommandLineOption(QStringList()

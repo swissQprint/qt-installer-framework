@@ -49,6 +49,7 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QResource>
 #include <QLoggingCategory>
@@ -146,7 +147,8 @@ public:
 
         QString loggingRules;
         if (m_parser.isSet(CommandLineOptions::scLoggingRulesLong)) {
-            loggingRules = m_parser.value(CommandLineOptions::scLoggingRulesLong)
+            loggingRules = QLatin1String("ifw.* = false\n");
+            loggingRules += m_parser.value(CommandLineOptions::scLoggingRulesLong)
                           .split(QLatin1Char(','), QString::SkipEmptyParts)
                           .join(QLatin1Char('\n')); // take rules from command line
         } else if (isCommandLineInterface) {
@@ -158,14 +160,24 @@ public:
                                         "ifw.package.version = true\n"
                                         "ifw.package.displayname = true\n");
         } else {
-            // enable all except detailed package information
+            // enable all except detailed package information and developer specific logging
             loggingRules = QLatin1String("ifw.* = true\n"
+                                        "ifw.developer.build = false\n"
                                         "ifw.package.* = false\n"
                                         "ifw.package.name = true\n"
                                         "ifw.package.version = true\n"
                                         "ifw.package.displayname = true\n");
         }
+
+        if (QInstaller::verboseLevel() > 1) {
+            loggingRules += QLatin1String("\nifw.developer.build = true\n"
+                                          "ifw.package.* = true\n");
+        }
         QLoggingCategory::setFilterRules(loggingRules);
+        qCDebug(QInstaller::lcInstallerInstallLog).noquote() << "Arguments:" <<
+                QCoreApplication::arguments().join(QLatin1String(", "));
+
+        dumpResourceTree();
 
         SDKApp::registerMetaResources(manager.collectionByName("QResources"));
         QInstaller::BinaryFormatEngineHandler::instance()->registerResources(manager.collections());
@@ -279,6 +291,9 @@ public:
 
         if (m_parser.isSet(CommandLineOptions::scAcceptLicenses))
             m_core->setAutoAcceptLicenses();
+
+        if (m_parser.isSet(CommandLineOptions::scConfirmCommand))
+            m_core->setAutoConfirmCommand();
 
         // Ignore message acceptance options when running the installer with GUI
         if (m_core->isCommandLineInstance()) {
@@ -413,7 +428,7 @@ public:
     {
         const QStringList items = list.split(QLatin1Char(','), QString::SkipEmptyParts);
         foreach (const QString &item, items)
-            qCDebug(QInstaller::lcGeneral) << "Adding custom repository:" << item;
+            qCDebug(QInstaller::lcInstallerInstallLog) << "Adding custom repository:" << item;
         return items;
     }
 
@@ -454,6 +469,17 @@ public:
             }
         }
         return QString();
+    }
+    void dumpResourceTree() const
+    {
+        qCDebug(QInstaller::lcDeveloperBuild) << "Resource tree:";
+        QDirIterator it(QLatin1String(":/"), QDir::NoDotAndDotDot | QDir::AllEntries | QDir::Hidden,
+            QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            if (it.next().startsWith(QLatin1String(":/qt-project.org")))
+                continue;
+            qCDebug(QInstaller::lcDeveloperBuild) << "    " << it.filePath().toUtf8().constData();
+        }
     }
 
 private:

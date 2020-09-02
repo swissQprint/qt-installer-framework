@@ -346,12 +346,12 @@ void Component::loadDataFromPackage(const Package &package)
         .split(QInstaller::commaRegExp(), QString::SkipEmptyParts);
     if (!uis.isEmpty())
         loadUserInterfaces(QDir(QString::fromLatin1("%1/%2").arg(localTempPath(), name())), uis);
-
+#ifndef IFW_DISABLE_TRANSLATIONS
     const QStringList qms = package.data(QLatin1String("Translations")).toString()
         .split(QInstaller::commaRegExp(), QString::SkipEmptyParts);
     if (!qms.isEmpty())
         loadTranslations(QDir(QString::fromLatin1("%1/%2").arg(localTempPath(), name())), qms);
-
+#endif
     QHash<QString, QVariant> licenseHash = package.data(QLatin1String("Licenses")).toHash();
     if (!licenseHash.isEmpty())
         loadLicenses(QString::fromLatin1("%1/%2/").arg(localTempPath(), name()), licenseHash);
@@ -562,7 +562,7 @@ void Component::loadComponentScript(const QString &fileName)
     } catch (const Error &error) {
         if (packageManagerCore()->settings().allowUnstableComponents()) {
             setUnstable(Component::UnstableError::ScriptLoadingFailed, error.message());
-            qCWarning(QInstaller::lcInstallerInstallLog) << error.message();
+            qCWarning(QInstaller::lcDeveloperBuild) << error.message();
         } else {
             throw error;
         }
@@ -879,8 +879,7 @@ QStringList Component::archives() const
 void Component::addDownloadableArchive(const QString &path)
 {
     Q_ASSERT(isFromOnlineRepository());
-
-    qCDebug(QInstaller::lcGeneral) << "addDownloadable" << path;
+    qCDebug(QInstaller::lcDeveloperBuild) << "addDownloadable" << path;
     d->m_downloadableArchives.append(d->m_vars.value(scVersion) + path);
 }
 
@@ -1353,7 +1352,7 @@ bool Component::isDefault() const
         }
         if (!valueFromScript.isError())
             return valueFromScript.toBool();
-        qCWarning(QInstaller::lcInstallerInstallLog) << "Value from script is not valid."
+        qCWarning(QInstaller::lcDeveloperBuild) << "Value from script is not valid."
             << (valueFromScript.toString().isEmpty()
             ? QString::fromLatin1("Unknown error.") : valueFromScript.toString());
         return false;

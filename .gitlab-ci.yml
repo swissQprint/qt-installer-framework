@@ -5,6 +5,7 @@ variables:
 
 stages:
   - package
+  - sign
   
 package-win64-release:
   stage: package
@@ -23,3 +24,14 @@ package-win64-release:
     - conan remove sqpQtIFW -f
     - conan create . installer/release -s build_type=Release
     - conan upload sqpQtIFW --all -r=inhouse -c
+
+sign:
+  needs: ["package-win64-release"]
+  only:
+    - tags
+  variables:
+    PKG_REFERENCE: sqpQtIFW/$CI_COMMIT_TAG@sqp/release
+  stage: sign
+  trigger:
+    project: sqp/dt/pysigntool
+    strategy: depend

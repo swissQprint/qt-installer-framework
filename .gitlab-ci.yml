@@ -30,7 +30,7 @@ sign:
   only:
     - tags
   variables:
-    PKG_REFERENCE: sqpQtIFW/$CI_COMMIT_TAG@sqp/release
+    PKG_REFERENCE: sqpQtIFW/$CI_COMMIT_TAG@installer/release
   stage: sign
   trigger:
     project: sqp/dt/pysigntool

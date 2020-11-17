@@ -44,6 +44,12 @@
 namespace QInstaller
 {
 
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::PackageManagerCoreData
+    \internal
+*/
+
 PackageManagerCoreData::PackageManagerCoreData(const QHash<QString, QString> &variables)
 {
     setDynamicPredefinedVariables();
@@ -70,7 +76,7 @@ PackageManagerCoreData::PackageManagerCoreData(const QHash<QString, QString> &va
     // fill the variables defined in the settings
     m_variables.insert(QLatin1String("ProductName"), m_settings.applicationName());
     m_variables.insert(QLatin1String("ProductVersion"), m_settings.version());
-    m_variables.insert(scTitle, m_settings.title());
+    m_variables.insert(scTitle, replaceVariables(m_settings.title()));
     m_variables.insert(scPublisher, m_settings.publisher());
     m_variables.insert(QLatin1String("Url"), m_settings.url());
     m_variables.insert(scStartMenuDir, m_settings.startMenuDir());
@@ -78,6 +84,7 @@ PackageManagerCoreData::PackageManagerCoreData(const QHash<QString, QString> &va
     m_variables.insert(QLatin1String("LogoPixmap"), m_settings.logo());
     m_variables.insert(QLatin1String("WatermarkPixmap"), m_settings.watermark());
     m_variables.insert(QLatin1String("BannerPixmap"), m_settings.banner());
+    m_variables.insert(QLatin1String("PageListPixmap"), m_settings.pageListPixmap());
 
     const QString description = m_settings.runProgramDescription();
     if (!description.isEmpty())

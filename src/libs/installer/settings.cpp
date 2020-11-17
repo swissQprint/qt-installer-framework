@@ -43,6 +43,19 @@
 
 using namespace QInstaller;
 
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::Settings
+    \internal
+*/
+
+/*!
+    \typedef QInstaller::RepoHash
+
+    Synonym for QHash<QString, QPair<Repository, Repository> >. Describes a repository
+    update with the supported key strings being \e{replace}, \e{remove}, and \e{add}.
+*/
+
 static const QLatin1String scInstallerApplicationIcon("InstallerApplicationIcon");
 static const QLatin1String scInstallerWindowIcon("InstallerWindowIcon");
 static const QLatin1String scLogo("Logo");
@@ -51,6 +64,7 @@ static const QLatin1String scWatermark("Watermark");
 static const QLatin1String scBanner("Banner");
 static const QLatin1String scProductUrl("ProductUrl");
 static const QLatin1String scBackground("Background");
+static const QLatin1String scPageListPixmap("PageListPixmap");
 static const QLatin1String scAdminTargetDir("AdminTargetDir");
 static const QLatin1String scMaintenanceToolName("MaintenanceToolName");
 static const QLatin1String scUserRepositories("UserRepositories");
@@ -284,7 +298,7 @@ Settings Settings::fromFileAndPrefix(const QString &path, const QString &prefix,
     elementList << scName << scVersion << scTitle << scPublisher << scProductUrl
                 << scTargetDir << scAdminTargetDir
                 << scInstallerApplicationIcon << scInstallerWindowIcon
-                << scLogo << scWatermark << scBanner << scBackground
+                << scLogo << scWatermark << scBanner << scBackground << scPageListPixmap
                 << scStartMenuDir << scMaintenanceToolName << scMaintenanceToolIniFile << scRemoveTargetDir
                 << scRunProgram << scRunProgramArguments << scRunProgramDescription
                 << scDependsOnLocalInstallerBinary
@@ -421,6 +435,11 @@ QString Settings::banner() const
 QString Settings::background() const
 {
     return d->absolutePathFromKey(scBackground);
+}
+
+QString Settings::pageListPixmap() const
+{
+    return d->absolutePathFromKey(scPageListPixmap);
 }
 
 QString Settings::wizardStyle() const

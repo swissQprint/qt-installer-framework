@@ -290,6 +290,9 @@ private slots:
 
     void testAllowRunningProcess()
     {
+        #ifdef Q_OS_MACOS
+            QSKIP("In macOS the app path and maintenancetool differ, not possible to test running processes.");
+        #endif
         PackageManagerCore core;
         core.setPackageManager();
         const QString testDirectory = QInstaller::generateTemporaryFileName();
@@ -302,12 +305,16 @@ private slots:
         const QRegularExpression re(warningMessage);
         QTest::ignoreMessage(QtWarningMsg, re);
         QTest::ignoreMessage(QtDebugMsg, "No updates available.");
-        core.updateComponentsSilently(QStringList());
+
+        QCOMPARE(PackageManagerCore::Failure, core.updateComponentsSilently(QStringList()));
         QVERIFY(QDir().rmdir(testDirectory));
     }
 
     void testDisallowRunningProcess()
     {
+        #ifdef Q_OS_MACOS
+            QSKIP("In macOS the app path and maintenancetool differ, not possible to test running processes.");
+        #endif
         PackageManagerCore core;
         core.setPackageManager();
         const QString testDirectory = QInstaller::generateTemporaryFileName();

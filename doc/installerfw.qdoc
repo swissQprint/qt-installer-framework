@@ -159,6 +159,10 @@
     separated by space. The \c <key=value> list is used to set internal key-value
     pairs by the framework.
 
+    Installer will return an exit code after it is executed. Exit code can be used
+    to determine whether the installation was successful, if the installation has
+    an mandatory update etc. See \c PackagemanagerCore::Status.
+
     \section1 Summary of Options
 
     Options marked with \c CLI are only available when running in headless mode,
@@ -396,6 +400,10 @@
             \li Background
             \li Filename for an image used as \c QWizard::BackgroundPixmap (only used by MacStyle).
                 If \c <WizardShowPageList> is set to \c true, the background is hidden.
+        \row
+            \li PageListPixmap
+            \li Filename for an image shown on top of installer page list. The image is shown
+                only if \c <WizardShowPageList> is also set to \c true.
         \row
             \li WizardStyle
             \li Set the wizard style to be used ("Modern", "Mac", "Aero" or "Classic").

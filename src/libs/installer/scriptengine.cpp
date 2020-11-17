@@ -46,8 +46,32 @@ namespace QInstaller {
 */
 
 /*!
-    \fn ScriptEngine::globalObject() const
+    \fn QInstaller::ScriptEngine::globalObject() const
     Returns a global object.
+*/
+
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::ConsoleProxy
+    \internal
+*/
+
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::InstallerProxy
+    \internal
+*/
+
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::QDesktopServicesProxy
+    \internal
+*/
+
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::QFileDialogProxy
+    \internal
 */
 
 QJSValue InstallerProxy::components() const

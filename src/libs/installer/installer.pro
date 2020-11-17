@@ -45,6 +45,7 @@ QT += \
 win32:QT += winextras
 
 HEADERS += packagemanagercore.h \
+    aspectratiolabel.h \
     packagemanagercore_p.h \
     packagemanagergui.h \
     binaryformat.h \
@@ -147,6 +148,7 @@ HEADERS += packagemanagercore.h \
     commandlineparser_p.h
 
 SOURCES += packagemanagercore.cpp \
+    aspectratiolabel.cpp \
     packagemanagercore_p.cpp \
     packagemanagergui.cpp \
     binaryformat.cpp \

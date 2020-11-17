@@ -137,7 +137,7 @@ CommandLineParser::CommandLineParser()
     m_parser.addOption(QCommandLineOption(QStringList()
         << CommandLineOptions::scNoForceInstallationShort << CommandLineOptions::scNoForceInstallationLong,
         QLatin1String("Allow deselecting components that are marked as forced.")));
-    m_parser.addOption(QCommandLineOption(QStringList()
+    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scNoDefaultInstallationShort
         << CommandLineOptions::scNoDefaultInstallationLong,
         QLatin1String("Deselects components that are marked as default.")));
     m_parser.addOption(QCommandLineOption(QStringList()
@@ -158,18 +158,23 @@ CommandLineParser::CommandLineParser()
                       "has no effect on online installers.")));
 
     // Message query options
-    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scAcceptMessageQuery,
+    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scAcceptMessageQueryShort
+         << CommandLineOptions::scAcceptMessageQueryLong,
          QLatin1String("[CLI] Accepts all message queries without user input.")));
-    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scRejectMessageQuery,
+    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scRejectMessageQueryShort
+         << CommandLineOptions::scRejectMessageQueryLong,
          QLatin1String("[CLI] Rejects all message queries without user input.")));
-    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scMessageAutomaticAnswer,
+    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scMessageAutomaticAnswerShort
+         << CommandLineOptions::scMessageAutomaticAnswerLong,
          QLatin1String("[CLI] Automatically answers the message queries with the message identifier and button value. "
                        "Several identifier=value pairs can be given separated with comma, "
                        "for example --auto-answer message.id=Ok,message.id2=Cancel."),
          QLatin1String("identifier=value")));
-     m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scMessageDefaultAnswer,
-        QLatin1String("[CLI] Automatically answers to message queries with their default values.")));
-    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scAcceptLicenses,
+    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scMessageDefaultAnswerShort
+         << CommandLineOptions::scMessageDefaultAnswerLong,
+         QLatin1String("[CLI] Automatically answers to message queries with their default values.")));
+    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scAcceptLicensesShort
+         << CommandLineOptions::scAcceptLicensesLong,
          QLatin1String("[CLI] Accepts all licenses without user input.")));
     m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scFileDialogAutomaticAnswer,
          QLatin1String("[CLI] Automatically sets the QFileDialog values getExistingDirectory() or getOpenFileName() "
@@ -177,8 +182,9 @@ CommandLineParser::CommandLineParser()
                        "Several identifier=value pairs can be given separated with comma, "
                        "for example --file-query filedialog.id=C:\Temp,filedialog.id2=C:\Temp2"),
          QLatin1String("identifier=value")));
-    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scConfirmCommand,
-         QLatin1String("[CLI] Confirms starting of installation, update or removal of components without user input.")));
+    m_parser.addOption(QCommandLineOption(QStringList() << CommandLineOptions::scConfirmCommandShort
+        << CommandLineOptions::scConfirmCommandLong, QLatin1String("[CLI] Confirms starting of "
+        "installation, update or removal of components without user input.")));
 
     // Developer options
     m_parser.addOption(QCommandLineOption(QStringList()

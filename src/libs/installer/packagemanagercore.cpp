@@ -138,6 +138,9 @@ using namespace QInstaller;
     \value  Unfinished
             Installation was not completed.
     \value  ForceUpdate
+            Installation has to be updated.
+    \value  EssentialUpdated
+            Installation essential components were updated.
 */
 
 /*!
@@ -146,31 +149,31 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::aboutCalculateComponentsToInstall() const
+    \fn QInstaller::PackageManagerCore::aboutCalculateComponentsToInstall() const
 
     \sa {installer::aboutCalculateComponentsToInstall}{installer.aboutCalculateComponentsToInstall}
 */
 
 /*!
-    \fn PackageManagerCore::finishedCalculateComponentsToInstall() const
+    \fn QInstaller::PackageManagerCore::finishedCalculateComponentsToInstall() const
 
     \sa {installer::finishedCalculateComponentsToInstall}{installer.finishedCalculateComponentsToInstall}
 */
 
 /*!
-    \fn PackageManagerCore::aboutCalculateComponentsToUninstall() const
+    \fn QInstaller::PackageManagerCore::aboutCalculateComponentsToUninstall() const
 
     \sa {installer::aboutCalculateComponentsToUninstall}{installer.aboutCalculateComponentsToUninstall}
 */
 
 /*!
-    \fn PackageManagerCore::finishedCalculateComponentsToUninstall() const
+    \fn QInstaller::PackageManagerCore::finishedCalculateComponentsToUninstall() const
 
     \sa {installer::finishedCalculateComponentsToUninstall}{installer.finishedCalculateComponentsToUninstall}
 */
 
 /*!
-    \fn PackageManagerCore::componentAdded(QInstaller::Component *comp)
+    \fn QInstaller::PackageManagerCore::componentAdded(QInstaller::Component *comp)
 
     Emitted when the new root component \a comp is added.
 
@@ -179,7 +182,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::rootComponentsAdded(QList<QInstaller::Component*> components)
+    \fn QInstaller::PackageManagerCore::rootComponentsAdded(QList<QInstaller::Component*> components)
 
     Emitted when the list of root components specified by \a components is added.
 
@@ -188,7 +191,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::updaterComponentsAdded(QList<QInstaller::Component*> components)
+    \fn QInstaller::PackageManagerCore::updaterComponentsAdded(QList<QInstaller::Component*> components)
 
     Emitted when a new list of updater components specified by \a components is added.
 
@@ -197,7 +200,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::valueChanged(const QString &key, const QString &value)
+    \fn QInstaller::PackageManagerCore::valueChanged(const QString &key, const QString &value)
 
     Emitted when the value \a value of the key \a key changes.
 
@@ -205,7 +208,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::currentPageChanged(int page)
+    \fn QInstaller::PackageManagerCore::currentPageChanged(int page)
 
     Emitted when the current page \a page changes.
 
@@ -213,13 +216,13 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::finishButtonClicked()
+    \fn QInstaller::PackageManagerCore::finishButtonClicked()
 
     \sa {installer::finishButtonClicked}{installer.finishButtonClicked}
 */
 
 /*!
-    \fn PackageManagerCore::metaJobProgress(int progress)
+    \fn QInstaller::PackageManagerCore::metaJobProgress(int progress)
 
     Triggered with progress updates of the communication with a remote
     repository. Values of \a progress range from 0 to 100.
@@ -228,7 +231,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::metaJobTotalProgress(int progress)
+    \fn QInstaller::PackageManagerCore::metaJobTotalProgress(int progress)
 
     Triggered when the total \a progress value of the communication with a
     remote repository changes.
@@ -237,7 +240,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::metaJobInfoMessage(const QString &message)
+    \fn QInstaller::PackageManagerCore::metaJobInfoMessage(const QString &message)
 
     Triggered with informative updates, \a message, of the communication with a remote repository.
 
@@ -245,14 +248,14 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::startAllComponentsReset()
+    \fn QInstaller::PackageManagerCore::startAllComponentsReset()
 
     \sa {installer::startAllComponentsReset}{installer.startAllComponentsReset}
     \sa finishAllComponentsReset()
 */
 
 /*!
-    \fn PackageManagerCore::finishAllComponentsReset(const QList<QInstaller::Component*> &rootComponents)
+    \fn QInstaller::PackageManagerCore::finishAllComponentsReset(const QList<QInstaller::Component*> &rootComponents)
 
     Triggered when the list of new root components, \a rootComponents, has been updated.
 
@@ -261,13 +264,13 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::startUpdaterComponentsReset()
+    \fn QInstaller::PackageManagerCore::startUpdaterComponentsReset()
 
     \sa {installer::startUpdaterComponentsReset}{installer.startUpdaterComponentsReset}
 */
 
 /*!
-    \fn PackageManagerCore::finishUpdaterComponentsReset(const QList<QInstaller::Component*> &componentsWithUpdates)
+    \fn QInstaller::PackageManagerCore::finishUpdaterComponentsReset(const QList<QInstaller::Component*> &componentsWithUpdates)
 
     Triggered when the list of available remote updates, \a componentsWithUpdates,
     has been updated.
@@ -276,48 +279,48 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::installationStarted()
+    \fn QInstaller::PackageManagerCore::installationStarted()
 
-    \sa {installer::installationStarted}{installer.installationStarted}
-    \sa installationFinished() installationInterrupted()
+    \sa {installer::installationStarted}{installer.installationStarted},
+        installationFinished(), installationInterrupted()
 */
 
 /*!
-    \fn PackageManagerCore::installationInterrupted()
+    \fn QInstaller::PackageManagerCore::installationInterrupted()
 
-    \sa {installer::installationInterrupted}{installer.installationInterrupted}
-    \sa interrupt() installationStarted() installationFinished()
+    \sa {installer::installationInterrupted}{installer.installationInterrupted},
+        interrupt(), installationStarted(), installationFinished()
 */
 
 /*!
-    \fn PackageManagerCore::installationFinished()
+    \fn QInstaller::PackageManagerCore::installationFinished()
+
+    \sa {installer::installationFinished}{installer.installationFinished},
+        installationStarted(), installationInterrupted()
+*/
+
+/*!
+    \fn QInstaller::PackageManagerCore::updateFinished()
 
     \sa {installer::installationFinished}{installer.installationFinished}
-    \sa installationStarted() installationInterrupted()
 */
 
 /*!
-    \fn PackageManagerCore::updateFinished()
-
-    \sa {installer::installationFinished}{installer.installationFinished}
-*/
-
-/*!
-    \fn PackageManagerCore::uninstallationStarted()
+    \fn QInstaller::PackageManagerCore::uninstallationStarted()
 
     \sa {installer::uninstallationStarted}{installer.uninstallationStarted}
     \sa uninstallationFinished()
 */
 
 /*!
-    \fn PackageManagerCore::uninstallationFinished()
+    \fn QInstaller::PackageManagerCore::uninstallationFinished()
 
     \sa {installer::uninstallationFinished}{installer.uninstallationFinished}
     \sa uninstallationStarted()
 */
 
 /*!
-    \fn PackageManagerCore::titleMessageChanged(const QString &title)
+    \fn QInstaller::PackageManagerCore::titleMessageChanged(const QString &title)
 
     Emitted when the text of the installer status (on the PerformInstallation page) changes to
     \a title.
@@ -326,7 +329,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::wizardPageInsertionRequested(QWidget *widget, QInstaller::PackageManagerCore::WizardPage page)
+    \fn QInstaller::PackageManagerCore::wizardPageInsertionRequested(QWidget *widget, QInstaller::PackageManagerCore::WizardPage page)
 
     Emitted when a custom \a widget is about to be inserted into \a page by
     addWizardPage().
@@ -335,7 +338,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::wizardPageRemovalRequested(QWidget *widget)
+    \fn QInstaller::PackageManagerCore::wizardPageRemovalRequested(QWidget *widget)
 
     Emitted when a \a widget is removed by removeWizardPage().
 
@@ -343,7 +346,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::wizardWidgetInsertionRequested(QWidget *widget,
+    \fn QInstaller::PackageManagerCore::wizardWidgetInsertionRequested(QWidget *widget,
         QInstaller::PackageManagerCore::WizardPage page, int position)
 
     Emitted when a \a widget is inserted into \a page by addWizardPageItem(). If several widgets
@@ -353,7 +356,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::wizardWidgetRemovalRequested(QWidget *widget)
+    \fn QInstaller::PackageManagerCore::wizardWidgetRemovalRequested(QWidget *widget)
 
     Emitted when a \a widget is removed by removeWizardPageItem().
 
@@ -361,7 +364,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::wizardPageVisibilityChangeRequested(bool visible, int page)
+    \fn QInstaller::PackageManagerCore::wizardPageVisibilityChangeRequested(bool visible, int page)
 
     Emitted when the visibility of the page with the ID \a page changes to \a visible.
 
@@ -370,7 +373,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::setValidatorForCustomPageRequested(QInstaller::Component *component, const QString &name,
+    \fn QInstaller::PackageManagerCore::setValidatorForCustomPageRequested(QInstaller::Component *component, const QString &name,
                                                                const QString &callbackName)
 
     Requests that a validator be set for the custom page specified by \a name and
@@ -381,7 +384,7 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::setAutomatedPageSwitchEnabled(bool request)
+    \fn QInstaller::PackageManagerCore::setAutomatedPageSwitchEnabled(bool request)
 
     Triggered when the automatic switching from the perform installation to the installation
     finished page is enabled (\a request is \c true) or disabled (\a request is \c false).
@@ -393,25 +396,25 @@ using namespace QInstaller;
 */
 
 /*!
-    \fn PackageManagerCore::coreNetworkSettingsChanged()
+    \fn QInstaller::PackageManagerCore::coreNetworkSettingsChanged()
 
     \sa {installer::coreNetworkSettingsChanged}{installer.coreNetworkSettingsChanged}
 */
 
 /*!
-    \fn PackageManagerCore::guiObjectChanged(QObject *gui)
+    \fn QInstaller::PackageManagerCore::guiObjectChanged(QObject *gui)
 
     Emitted when the GUI object is set to \a gui.
 */
 
 /*!
-    \fn PackageManagerCore::unstableComponentFound(const QString &type, const QString &errorMessage, const QString &component)
+    \fn QInstaller::PackageManagerCore::unstableComponentFound(const QString &type, const QString &errorMessage, const QString &component)
 
     Emitted when an unstable \a component is found containing an unstable \a type and \a errorMessage.
 */
 
 /*!
-    \fn PackageManagerCore::installerBinaryMarkerChanged(qint64 magicMarker)
+    \fn QInstaller::PackageManagerCore::installerBinaryMarkerChanged(qint64 magicMarker)
 
     Emitted when installer binary marker \a magicMarker has changed.
 */
@@ -479,7 +482,7 @@ void PackageManagerCore::writeMaintenanceConfigFiles()
 }
 
 /*!
-    Disables writing of maintenance tool for the current session.
+    Disables writing of maintenance tool for the current session if \a disable is \c true.
  */
 void PackageManagerCore::disableWriteMaintenanceTool(bool disable)
 {
@@ -1195,7 +1198,9 @@ PackageManagerCore::PackageManagerCore()
 
 /*!
     Creates an installer or uninstaller and performs sanity checks on the operations specified
-    by \a operations.
+    by \a operations. A hash table of variables to be stored as package manager core values
+    can be specified by \a params. Sets the current instance type to be either a GUI or CLI one based
+    on the value of \a commandLineInstance.
 
     The magic marker \a magicmaker is a \c quint64 that identifies the type of the binary:
     \c installer or \c uninstaller.
@@ -1652,7 +1657,7 @@ bool PackageManagerCore::fetchPackagesTree(const PackagesList &packages, const L
 }
 
 /*!
-    \fn PackageManagerCore::addWizardPage(QInstaller::Component * component, const QString & name, int page)
+    \fn QInstaller::PackageManagerCore::addWizardPage(QInstaller::Component * component, const QString & name, int page)
 
     Adds the widget with object name \a name registered by \a component as a new page
     into the installer's GUI wizard. The widget is added before \a page.
@@ -1677,7 +1682,7 @@ bool PackageManagerCore::addWizardPage(Component *component, const QString &name
 }
 
 /*!
-    \fn PackageManagerCore::removeWizardPage(QInstaller::Component * component, const QString & name)
+    \fn QInstaller::PackageManagerCore::removeWizardPage(QInstaller::Component * component, const QString & name)
 
     Removes the widget with the object name \a name previously added to the installer's wizard
     by \a component.
@@ -1717,7 +1722,7 @@ bool PackageManagerCore::setDefaultPageVisible(int page, bool visible)
 }
 
 /*!
-    \fn PackageManagerCore::setValidatorForCustomPage(QInstaller::Component * component, const QString & name, const QString & callbackName)
+    \fn QInstaller::PackageManagerCore::setValidatorForCustomPage(QInstaller::Component * component, const QString & name, const QString & callbackName)
 
     Sets a validator for the custom page specified by \a name and \a callbackName
     for the component \a component.
@@ -1758,7 +1763,7 @@ void PackageManagerCore::deselectComponent(const QString &id)
 }
 
 /*!
-    \fn PackageManagerCore::addWizardPageItem(QInstaller::Component * component, const QString & name,
+    \fn QInstaller::PackageManagerCore::addWizardPageItem(QInstaller::Component * component, const QString & name,
         int page, int position)
 
     Adds the widget with the object name \a name registered by \a component as a GUI element
@@ -1792,7 +1797,7 @@ QString PackageManagerCore::targetDirectory() const {
 }
 
 /*!
-    \fn PackageManagerCore::removeWizardPageItem(QInstaller::Component * component, const QString & name)
+    \fn QInstaller::PackageManagerCore::removeWizardPageItem(QInstaller::Component * component, const QString & name)
 
     Removes the widget with the object name \a name previously added to the installer's wizard
     by \a component.
@@ -2323,10 +2328,9 @@ void PackageManagerCore::listInstalledPackages()
 /*!
     Updates the selected components \a componentsToUpdate without GUI.
     If essential components are found, then only those will be updated.
-    Returns \c true if components are updated successfully or there are
-    no updates to perform, otherwise returns \c false.
+    Returns PackageManagerCore installation status.
 */
-bool PackageManagerCore::updateComponentsSilently(const QStringList &componentsToUpdate)
+PackageManagerCore::Status PackageManagerCore::updateComponentsSilently(const QStringList &componentsToUpdate)
 {
     if (d->runningProcessesFound())
         throw Error(tr("Running processes found."));
@@ -2371,7 +2375,7 @@ bool PackageManagerCore::updateComponentsSilently(const QStringList &componentsT
             if (userSelectedComponents && componentsToBeUpdated.isEmpty()) {
                 qCDebug(QInstaller::lcInstallerInstallLog)
                     << "No updates available for selected components.";
-                return true;
+                return PackageManagerCore::Success;
             }
             foreach (Component *componentToUpdate, componentsToBeUpdated) {
                 const QModelIndex &idx = model->indexFromComponentName(componentToUpdate->name());
@@ -2380,14 +2384,16 @@ bool PackageManagerCore::updateComponentsSilently(const QStringList &componentsT
         }
 
         if (!d->calculateComponentsAndRun())
-            return false;
+            return status();
 
-        if (essentialUpdatesFound)
-            qCDebug(QInstaller::lcInstallerInstallLog) << "Essential components updated successfully.";
-        else
+        if (essentialUpdatesFound) {
+            qCDebug(QInstaller::lcInstallerInstallLog) << "Essential components updated successfully."
+                " Please restart maintenancetool to update other components.";
+        } else {
             qCDebug(QInstaller::lcInstallerInstallLog) << "Components updated successfully.";
+        }
     }
-    return true;
+    return status();
 }
 
 /*!
@@ -2402,13 +2408,17 @@ void PackageManagerCore::commitSessionOperations()
 
 /*!
     Uninstalls the selected components \a components without GUI.
-    Returns \c true if components are uninstalled successfully or
-    there are no components to uninstall, otherwise returns \c false.
+    Returns PackageManagerCore installation status.
 */
-bool PackageManagerCore::uninstallComponentsSilently(const QStringList& components)
+PackageManagerCore::Status PackageManagerCore::uninstallComponentsSilently(const QStringList& components)
 {
     if (d->runningProcessesFound())
         throw Error(tr("Running processes found."));
+
+    if (components.isEmpty()) {
+        qCDebug(QInstaller::lcInstallerInstallLog) << "No components selected for uninstallation.";
+        return PackageManagerCore::Success;
+    }
 
     ComponentModel *model = defaultComponentModel();
     fetchLocalPackagesTree();
@@ -2430,20 +2440,17 @@ bool PackageManagerCore::uninstallComponentsSilently(const QStringList& componen
     }
 
     if (uninstallComponentFound) {
-        if (!d->calculateComponentsAndRun())
-            return false;
-
-        qCDebug(QInstaller::lcInstallerInstallLog) << "Components uninstalled successfully";
+        if (d->calculateComponentsAndRun())
+            qCDebug(QInstaller::lcInstallerInstallLog) << "Components uninstalled successfully";
     }
-    return true;
+    return status();
 }
 
 /*!
     Uninstalls all installed components without GUI and removes
-    the program directory. Returns \c true if components are
-    uninstalled successfully, otherwise returns \c false.
+    the program directory. Returns PackageManagerCore installation status.
 */
-bool PackageManagerCore::removeInstallationSilently()
+PackageManagerCore::Status PackageManagerCore::removeInstallationSilently()
 {
     if (d->runningProcessesFound())
         throw Error(tr("Running processes found."));
@@ -2451,30 +2458,43 @@ bool PackageManagerCore::removeInstallationSilently()
     qCDebug(QInstaller::lcInstallerInstallLog) << "Complete uninstallation was chosen.";
     if (!(d->m_autoConfirmCommand || d->askUserConfirmCommand())) {
         qCDebug(QInstaller::lcInstallerInstallLog) << "Uninstallation aborted.";
-        return false;
+        return status();
     }
     setCompleteUninstallation(true);
-    return run();
+    if (run())
+        return PackageManagerCore::Success;
+    else
+        return PackageManagerCore::Failure;
 }
 
 /*!
     Installs the selected components \a components without displaying a user
     interface. Virtual components cannot be installed unless made visible with
     --show-virtual-components. AutoDependOn nor non-checkable components cannot
-    be installed directly. Returns \c true if components are installed or there
-    is nothing to install, otherwise returns \c false.
+    be installed directly. Returns PackageManagerCore installation status.
 */
-bool PackageManagerCore::installSelectedComponentsSilently(const QStringList& components)
+PackageManagerCore::Status PackageManagerCore::installSelectedComponentsSilently(const QStringList& components)
 {
-    // Check if there are processes running in the install if maintenancetool is in used.
     if (!isInstaller()) {
+        // Check if there are processes running in the install if maintenancetool is used.
         if (d->runningProcessesFound())
             throw Error(tr("Running processes found."));
         setPackageManager();
+
+        //Check that packages are not already installed
+        const LocalPackagesHash installedPackages = this->localInstalledPackages();
+        QStringList helperStrList;
+        helperStrList << components << installedPackages.keys();
+        helperStrList.removeDuplicates();
+        if (helperStrList.count() == installedPackages.count()) {
+            qCDebug(QInstaller::lcInstallerInstallLog) << "Components already installed.";
+            return PackageManagerCore::Success;
+        }
     }
 
     ComponentModel *model = defaultComponentModel();
-    fetchRemotePackagesTree();
+    if (!fetchRemotePackagesTree())
+        return status();
 
     bool installComponentsFound = false;
     foreach (const QString &name, components){
@@ -2503,22 +2523,19 @@ bool PackageManagerCore::installSelectedComponentsSilently(const QStringList& co
         }
     }
     if (installComponentsFound) {
-        if (!d->calculateComponentsAndRun())
-            return false;
-
-        qCDebug(QInstaller::lcInstallerInstallLog) << "Components installed successfully";
+        if (d->calculateComponentsAndRun())
+            qCDebug(QInstaller::lcInstallerInstallLog) << "Components installed successfully";
     }
-    return true;
+    return status();
 }
 
 /*!
     Installs components that are checked by default, i.e. those that are set
     with <Default> or <ForcedInstallation> and their respective dependencies
     without GUI.
-    Returns \c true if default components are found and the maintenance tool
-    needs to be written, otherwise returns \c false.
+    Returns PackageManagerCore installation status.
 */
-bool PackageManagerCore::installDefaultComponentsSilently()
+PackageManagerCore::Status PackageManagerCore::installDefaultComponentsSilently()
 {
     d->m_defaultInstall = true;
     ComponentModel *model = defaultComponentModel();
@@ -2528,12 +2545,11 @@ bool PackageManagerCore::installDefaultComponentsSilently()
         // There are components that are checked by default, we should install them
         if (d->calculateComponentsAndRun()) {
             qCDebug(QInstaller::lcInstallerInstallLog) << "Components installed successfully.";
-            return true;
         }
     } else {
         qCDebug(QInstaller::lcInstallerInstallLog) << "No components available for default installation.";
     }
-    return false;
+    return status();
 }
 
 /*!

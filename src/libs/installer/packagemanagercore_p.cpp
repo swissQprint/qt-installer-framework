@@ -79,6 +79,12 @@
 
 namespace QInstaller {
 
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::PackageManagerCorePrivate
+    \internal
+*/
+
 class OperationTracer
 {
 public:
@@ -176,7 +182,8 @@ static void deferredRename(const QString &oldName, const QString &newName, bool 
     if (restart) {
         //Restart with same command line arguments as first executable
         QStringList commandLineArguments = QCoreApplication::arguments();
-        batch <<  QString::fromLatin1("tmp.exec \"%1 --updater").arg(arguments[2]);
+        batch <<  QString::fromLatin1("tmp.exec \"%1 --%2")
+                  .arg(arguments[2]).arg(CommandLineOptions::scStartUpdaterLong);
         //Skip the first argument as that is executable itself
         for (int i = 1; i < commandLineArguments.count(); i++) {
             batch << QString::fromLatin1(" %1").arg(commandLineArguments.at(i));
@@ -310,7 +317,7 @@ PackageManagerCorePrivate::~PackageManagerCorePrivate()
     // delete m_gui;
 }
 
-/*!
+/*
     Return true, if a process with \a name is running. On Windows, comparison is case-insensitive.
 */
 /* static */
@@ -935,6 +942,7 @@ void PackageManagerCorePrivate::stopProcessesForUpdates(const QList<Component*> 
     if (processList.isEmpty())
         return;
 
+    uint retryCount = 5;
     while (true) {
         const QStringList processes = checkRunningProcessesFromList(processList);
         if (processes.isEmpty())
@@ -949,6 +957,12 @@ void PackageManagerCorePrivate::stopProcessesForUpdates(const QList<Component*> 
             m_core->setCanceled();
             throw Error(tr("Installation canceled by user"));
         }
+        if (!m_core->isCommandLineInstance())
+            continue;
+
+        // Do not allow infinite retries with cli instance
+        if (--retryCount == 0)
+            throw Error(tr("Retry count exceeded"));
     }
 }
 
@@ -1808,7 +1822,10 @@ bool PackageManagerCorePrivate::runPackageUpdater()
 
         if (adminRightsGained)
             m_core->dropAdminRights();
-        setStatus(PackageManagerCore::Success);
+        if (m_foundEssentialUpdate)
+            setStatus(PackageManagerCore::EssentialUpdated);
+        else
+            setStatus(PackageManagerCore::Success);
         emit installationFinished();
     } catch (const Error &err) {
         if (m_core->status() != PackageManagerCore::Canceled) {
@@ -1869,12 +1886,14 @@ bool PackageManagerCorePrivate::runUninstaller()
         deleteMaintenanceTool();    // this will also delete the TargetDir on Windows
 
         // If not on Windows, we need to remove TargetDir manually.
+#ifndef Q_OS_WIN
         if (QVariant(m_core->value(scRemoveTargetDir)).toBool() && !targetDir().isEmpty()) {
             if (updateAdminRights && !adminRightsGained)
                 adminRightsGained = m_core->gainAdminRights();
             removeDirectoryThreaded(targetDir(), true);
             qCDebug(QInstaller::lcInstallerInstallLog) << "Complete uninstallation was chosen.";
         }
+#endif
 
         unregisterMaintenanceTool();
         m_needToWriteMaintenanceTool = false;
@@ -1964,7 +1983,7 @@ void PackageManagerCorePrivate::installComponent(Component *component, double pr
         if (!ok && !ignoreError)
             throw Error(operation->errorString());
 
-        if (component->value(scEssential, scFalse) == scTrue)
+        if ((component->value(scEssential, scFalse) == scTrue) && !m_core->isCommandLineInstance())
             m_needsHardRestart = true;
     }
 

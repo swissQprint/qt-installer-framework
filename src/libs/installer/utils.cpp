@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -51,6 +51,27 @@
 #include <time.h>
 #endif
 
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::PlainVerboseWriterOutput
+    \internal
+*/
+
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::VerboseWriterOutput
+    \internal
+*/
+
+/*!
+    \inmodule QtInstallerFramework
+    \class QInstaller::VerboseWriter
+    \internal
+*/
+
+/*!
+    \internal
+*/
 void QInstaller::uiDetachedWait(int ms)
 {
     QTime timer;
@@ -74,7 +95,7 @@ void QInstaller::uiDetachedWait(int ms)
 
     The process will be started in the directory \a workingDirectory.
 
-    If the function is successful then \a *pid is set to the process identifier of the started
+    If the function is successful then \a pid is set to the process identifier of the started
     process.
 
     Additional note: The difference in using this function over its equivalent from QProcess
@@ -110,7 +131,11 @@ bool QInstaller::startDetached(const QString &program, const QStringList &argume
     return success;
 }
 
-// Returns ["en-us", "en"] for "en-us"
+/*!
+    \internal
+
+    Returns ["en-us", "en"] for "en-us".
+*/
 QStringList QInstaller::localeCandidates(const QString &locale_)
 {
     QStringList candidates;
@@ -129,6 +154,10 @@ QStringList QInstaller::localeCandidates(const QString &locale_)
 
 static uint verbLevel = 0;
 
+/*!
+    Sets to verbose output if \a v is set to \c true. Calling this multiple
+    times increases or decreases the verbosity level accordingly.
+*/
 void QInstaller::setVerbose(bool v)
 {
     if (v)
@@ -137,21 +166,50 @@ void QInstaller::setVerbose(bool v)
         verbLevel--;
 }
 
+/*!
+    Returns \c true if the installer is set to verbose output.
+*/
 bool QInstaller::isVerbose()
 {
     return verbLevel > 0 ? true : false;
 }
 
+/*!
+    Returns the current verbosity level.
+*/
 uint QInstaller::verboseLevel()
 {
     return verbLevel;
 }
 
+/*!
+    Returns a list of mutually exclusive options passed to the \a parser, if there is
+    at least one mutually exclusive pair of options set. Otherwise returns an empty
+    \c QStringList. The options considered mutual are provided with \a options.
+*/
+QStringList QInstaller::checkMutualOptions(CommandLineParser &parser, const QStringList &options)
+{
+    QStringList mutual;
+    foreach (const QString &option, options) {
+        if (parser.isSet(option))
+            mutual << option;
+    }
+    return mutual.count() > 1
+        ? mutual
+        : QStringList();
+}
+
+/*!
+    \internal
+*/
 std::ostream &QInstaller::operator<<(std::ostream &os, const QString &string)
 {
     return os << qPrintable(string);
 }
 
+/*!
+    \internal
+*/
 QByteArray QInstaller::calculateHash(QIODevice *device, QCryptographicHash::Algorithm algo)
 {
     Q_ASSERT(device);
@@ -166,6 +224,9 @@ QByteArray QInstaller::calculateHash(QIODevice *device, QCryptographicHash::Algo
     return QByteArray(); // never reached
 }
 
+/*!
+    \internal
+*/
 QByteArray QInstaller::calculateHash(const QString &path, QCryptographicHash::Algorithm algo)
 {
     QFile file(path);
@@ -174,6 +235,9 @@ QByteArray QInstaller::calculateHash(const QString &path, QCryptographicHash::Al
     return calculateHash(&file, algo);
 }
 
+/*!
+    \internal
+*/
 QString QInstaller::replaceVariables(const QHash<QString, QString> &vars, const QString &str)
 {
     QString res;
@@ -194,6 +258,9 @@ QString QInstaller::replaceVariables(const QHash<QString, QString> &vars, const 
     return res;
 }
 
+/*!
+    \internal
+*/
 QString QInstaller::replaceWindowsEnvironmentVariables(const QString &str)
 {
     const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
@@ -357,6 +424,9 @@ static QVector<Char*> qWinCmdLine(Char *cmdParam, int length, int &argc)
     return argv;
 }
 
+/*!
+    \internal
+*/
 QStringList QInstaller::parseCommandLineArgs(int argc, char **argv)
 {
     Q_UNUSED(argc)
@@ -421,12 +491,19 @@ static QString qt_create_commandline(const QString &program, const QStringList &
     return args;
 }
 
+/*!
+    \internal
+*/
 QString QInstaller::createCommandline(const QString &program, const QStringList &arguments)
 {
     return qt_create_commandline(program, arguments);
 }
 
-//copied from qsystemerror.cpp in Qt
+/*!
+    \internal
+
+    Copied from qsystemerror.cpp in Qt.
+*/
 QString QInstaller::windowsErrorString(int errorCode)
 {
     QString ret;
@@ -452,5 +529,3 @@ QString QInstaller::windowsErrorString(int errorCode)
 }
 
 #endif
-
-

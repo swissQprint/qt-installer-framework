@@ -862,7 +862,7 @@ MetadataJob::Status MetadataJob::setAdditionalRepositories(QHash<QString, QPair<
             status = XmlDownloadRetry;
         }
     } else if (s.updateDefaultRepositories(repositoryUpdates) == Settings::UpdatesApplied) {
-        if (m_core->isMaintainer()) {
+        if (!m_core->isCommandLineInstance() && m_core->isMaintainer()) {
             bool gainedAdminRights = false;
             if (!m_core->directoryWritable(m_core->value(scTargetDir))) {
                 m_core->gainAdminRights();

@@ -152,7 +152,6 @@ public:
     Q_INVOKABLE void addStopProcessForUpdateRequest(const QString &process);
     Q_INVOKABLE void removeStopProcessForUpdateRequest(const QString &process);
     Q_INVOKABLE void setStopProcessForUpdateRequest(const QString &process, bool requested);
-    Q_INVOKABLE QStringList registerBinariesAsProcessesToStop(const QString& directory);
 
     QString name() const;
     QString displayName() const;

@@ -936,18 +936,6 @@ void Component::setStopProcessForUpdateRequest(const QString &process, bool requ
         removeStopProcessForUpdateRequest(process);
 }
 
-QStringList Component::registerBinariesAsProcessesToStop(const QString& directory) {
-    if (directory.isEmpty()) {
-        qCCritical(QInstaller::lcInstallerInstallLog) << "Empty path to register binaries as processes to be stopped.";
-        return QStringList();
-    }
-    const auto executables = d->m_core->findExecutablesRecursive(directory);
-    for (const auto& executable : executables) {
-        addStopProcessForUpdateRequest(executable);
-    }
-    return executables;
-}
-
 /*!
     The list of processes that need to be closed before installing, updating, or uninstalling this
     component.

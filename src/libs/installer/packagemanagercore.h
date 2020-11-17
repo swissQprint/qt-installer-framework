@@ -209,7 +209,6 @@ public:
     Q_INVOKABLE QString extendedUrlQueryString(const QString& key, const QString& value) const;
     Q_INVOKABLE QString generateSqpDefaultUrlQueryString() const;
     Q_INVOKABLE bool updateSqpDefaultUrlQueryString();
-    Q_INVOKABLE QStringList findExecutablesRecursive(const QString& directory) const;
 
     bool checkTargetDir(const QString &targetDirectory);
     QString targetDirWarning(const QString &targetDirectory) const;

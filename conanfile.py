@@ -27,7 +27,8 @@ class SQPQtIFWConan(ConanFile):
     description = "Basic binary for building Qt installers."
     settings = "os", "compiler", "build_type", "arch"
     build_requires = (
-        (build_tools)
+        (build_tools),
+        ("QtStatic/5.15.1@3rdparty/release")
     )
     exports_sources = "src/*", "installerfw.pri", "installerfw.pro", "tools/*"
     exports = "gitinfo.json"
@@ -75,13 +76,8 @@ class SQPQtIFWConan(ConanFile):
         env_build = VisualStudioBuildEnvironment(self)
         with tools.environment_append(env_build.vars):
             vcvars = tools.vcvars_command(self.settings)
-            # Für das Ausführen nachfolgender Tools werden die entsprechenden Umgebungs-
-            # variabeln benötigt. Im CI/CD wird die im yml File gesteuert. Es ist darauf zu
-            # achten, dass qmake von einem statisch kompilierten Qt stammt!
-            # prepare with qmake:
             self.run("{0} && qmake.exe installerfw.pro CONFIG+=release -spec win32-msvc".format(vcvars))
-            self.run("{0} && jom.exe /J 10".format(vcvars))
-            #self.run("{0} && set CL=/MP && nmake".format(vcvars)) # 'CL=/MP' -> Parallelbuild
+            self.run("{0} && set CL=/MP && nmake.exe".format(vcvars))
         self.remove_debug_directory()
 
     def package(self):

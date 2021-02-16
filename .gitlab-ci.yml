@@ -1,25 +1,16 @@
-variables:
-  PROJECTNAME: qtifw
-  Qt_DIR: C:\Qt\static\5.15
-  Qt_TOOLS: C:\Qt\Tools\QtCreator
-
 stages:
   - package
   - sign
   
 package-win64-release:
+  image: registry.swissqprint.com/sqp/devops/runner/msvc-2019:0.4-x86_64
   stage: package
   tags:
-    - conan
-    - msvc14
+    - docker
     - windows
     - x86_64
-    - qt5.15-static
   only:
     - tags
-  before_script:
-    - set PATH=%Qt_DIR%\bin;%PATH% # qmake
-    - set PATH=%Qt_TOOLS%\bin;%PATH% # jom
   script:
     - conan remove sqpQtIFW -f
     - conan create . installer/release -s build_type=Release

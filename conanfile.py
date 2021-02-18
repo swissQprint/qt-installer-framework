@@ -30,7 +30,7 @@ class SQPQtIFWConan(ConanFile):
         (build_tools)
     )
     requires = (
-        ("QtStatic/5.15.1@3rdparty/release")
+        ("QtStatic/5.15.2@3rdparty/release")
     )
     exports_sources = "src/*", "installerfw.pri", "installerfw.pro", "tools/*"
     exports = "gitinfo.json"
@@ -76,10 +76,13 @@ class SQPQtIFWConan(ConanFile):
         # gestellt wird. Die Variablen werden über das korrekte bat-File von Visual Studio 
         # dann für die Umgebung vorbereitet.
         env_build = VisualStudioBuildEnvironment(self)
-        with tools.environment_append(env_build.vars):
-            vcvars = tools.vcvars_command(self.settings)
-            self.run("{0} && qmake.exe installerfw.pro CONFIG+=release -spec win32-msvc".format(vcvars))
-            self.run("{0} && set CL=/MP && nmake.exe".format(vcvars))
+        with tools.remove_from_path("qmake"):
+            path = os.environ["PATH"] + os.pathsep + self.deps_cpp_info['QtStatic'].rootpath + '\\bin'
+            with tools.environment_append(env_build.vars):
+                with tools.environment_append({"PATH" : path}):
+                    vcvars = tools.vcvars_command(self.settings)
+                    self.run("{0} && qmake.exe installerfw.pro CONFIG+=release -spec win32-msvc".format(vcvars))
+                    self.run("{0} && set CL=/MP && nmake.exe".format(vcvars))
         self.remove_debug_directory()
 
     def package(self):

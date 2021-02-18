@@ -27,9 +27,7 @@ class SQPQtIFWConan(ConanFile):
     description = "Basic binary for building Qt installers."
     settings = "os", "compiler", "build_type", "arch"
     build_requires = (
-        (build_tools)
-    )
-    requires = (
+        (build_tools),
         ("QtStatic/5.15.2@3rdparty/release")
     )
     exports_sources = "src/*", "installerfw.pri", "installerfw.pro", "tools/*"

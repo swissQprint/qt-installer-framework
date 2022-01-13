@@ -991,8 +991,11 @@ QString replaced(QString url, const QString& key, const QString& value) {
     return url;
 }
 
-QString PackageManagerCore::extendedUrlQueryString(const QString& key, const QString& value) const {
+QString PackageManagerCore::extendedUrlQueryString(const QString& key, const QString& value, const QString& base) const {
     auto queryUrl = this->value(scUrlQueryString);
+    if (!base.isEmpty()) {
+        queryUrl = base;
+    }
     if (!queryUrl.contains(key)) {
         QString separator;
         if (!queryUrl.isEmpty()) {
@@ -1032,6 +1035,25 @@ bool PackageManagerCore::updateSqpDefaultUrlQueryString() {
         return false;
     }
     return setValue(scUrlQueryString, defUrl);
+}
+
+void PackageManagerCore::setUpdateTrigger(const QString& trigger)
+{
+    if (m_updateTrigger == trigger) {
+        return;
+    }
+    m_updateTrigger = trigger;
+    emit updateTriggerChanged();
+}
+
+QString PackageManagerCore::updateTrigger() const
+{
+    return m_updateTrigger;
+}
+
+bool PackageManagerCore::hasUpdateTrigger() const
+{
+    return !m_updateTrigger.isEmpty();
 }
 
 /*!

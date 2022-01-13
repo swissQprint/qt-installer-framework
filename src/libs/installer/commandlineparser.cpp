@@ -86,6 +86,9 @@ CommandLineParser::CommandLineParser()
     m_parser.addOption(QCommandLineOption(QStringList()
         << CommandLineOptions::scSqpPlotMachineTokenLong << CommandLineOptions::scSqpPlotMachineTokenShort,
         QLatin1String("Plot swissQprint machine authentication token.")));
+    m_parser.addOption(QCommandLineOption(QStringList()
+        << CommandLineOptions::scSqpUpdateTriggerLong,
+        QLatin1String("Tell the intention of the update request: manual, auto (default).")));
 
     // Repository management options
     m_parser.addOption(QCommandLineOption(QStringList()

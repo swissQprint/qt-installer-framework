@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -34,26 +34,19 @@
 #include <QLoggingCategory>
 #include <QTest>
 
+#include <iostream>
+#include <sstream>
+
 using namespace QInstaller;
 
 class tst_CLIInterface : public QObject
 {
     Q_OBJECT
 
-private:
-    void setIgnoreMessage()
-    {
-        QTest::ignoreMessage(QtDebugMsg, "Id: A");
-        QTest::ignoreMessage(QtDebugMsg, "Id: B");
-        QTest::ignoreMessage(QtDebugMsg, "Id: C");
-        QTest::ignoreMessage(QtDebugMsg, "Id: AB");
-    }
-
 private slots:
     void testListAvailablePackages()
     {
-        QString loggingRules = (QLatin1String("ifw.* = false\n"
-                                "ifw.package.name = true\n"));
+        QString loggingRules = (QLatin1String("ifw.* = false\n"));
 
         QTest::ignoreMessage(QtDebugMsg, "Operations sanity check succeeded.");
 
@@ -61,27 +54,61 @@ private slots:
                 (m_installDir, ":///data/repository");
 
         QLoggingCategory::setFilterRules(loggingRules);
+        auto func = &PackageManagerCore::listAvailablePackages;
 
-        setIgnoreMessage();
-        core->listAvailablePackages(QLatin1String("."));
+        verifyListPackagesMessage(core, QLatin1String("<availablepackages>\n"
+            "    <package name=\"AB\" displayname=\"AB\" version=\"1.0.2-1\"/>\n"
+            "    <package name=\"A\" displayname=\"A\" version=\"1.0.2-1\"/>\n"
+            "    <package name=\"B\" displayname=\"B\" version=\"1.0.0-1\"/>\n"
+            "    <package name=\"C\" displayname=\"C\" version=\"1.0.0-1\"/>\n"
+            "</availablepackages>\n"), func, QLatin1String("."), QHash<QString, QString>());
 
-        QTest::ignoreMessage(QtDebugMsg, "Id: A");
-        QTest::ignoreMessage(QtDebugMsg, "Id: AB");
-        core->listAvailablePackages(QLatin1String("A"));
+        verifyListPackagesMessage(core, QLatin1String("<availablepackages>\n"
+            "    <package name=\"AB\" displayname=\"AB\" version=\"1.0.2-1\"/>\n"
+            "    <package name=\"A\" displayname=\"A\" version=\"1.0.2-1\"/>\n"
+            "</availablepackages>\n"), func, QLatin1String("A"), QHash<QString, QString>());
 
-        QTest::ignoreMessage(QtDebugMsg, "Id: A");
-        QTest::ignoreMessage(QtDebugMsg, "Id: AB");
-        core->listAvailablePackages(QLatin1String("A.*"));
+        verifyListPackagesMessage(core, QLatin1String("<availablepackages>\n"
+            "    <package name=\"AB\" displayname=\"AB\" version=\"1.0.2-1\"/>\n"
+            "    <package name=\"A\" displayname=\"A\" version=\"1.0.2-1\"/>\n"
+            "</availablepackages>\n"), func, QLatin1String("A.*"), QHash<QString, QString>());
 
+        verifyListPackagesMessage(core, QLatin1String("<availablepackages>\n"
+            "    <package name=\"B\" displayname=\"B\" version=\"1.0.0-1\"/>\n"
+            "</availablepackages>\n"), func, QLatin1String("^B"), QHash<QString, QString>());
 
-        QTest::ignoreMessage(QtDebugMsg, "Id: B");
-        core->listAvailablePackages(QLatin1String("^B"));
+        verifyListPackagesMessage(core, QLatin1String("<availablepackages>\n"
+            "    <package name=\"B\" displayname=\"B\" version=\"1.0.0-1\"/>\n"
+            "</availablepackages>\n"), func, QLatin1String("^B.*"), QHash<QString, QString>());
 
-        QTest::ignoreMessage(QtDebugMsg, "Id: B");
-        core->listAvailablePackages(QLatin1String("^B.*"));
+        verifyListPackagesMessage(core, QLatin1String("<availablepackages>\n"
+            "    <package name=\"C\" displayname=\"C\" version=\"1.0.0-1\"/>\n"
+            "</availablepackages>\n"), func, QLatin1String("^C"), QHash<QString, QString>());
 
-        QTest::ignoreMessage(QtDebugMsg, "Id: C");
-        core->listAvailablePackages(QLatin1String("^C"));
+        // Test with filters
+        QHash<QString, QString> searchHash {
+            { "Version", "1.0.2" },
+            { "DisplayName", "A" }
+        };
+        verifyListPackagesMessage(core, QLatin1String("<availablepackages>\n"
+             "    <package name=\"AB\" displayname=\"AB\" version=\"1.0.2-1\"/>\n"
+             "    <package name=\"A\" displayname=\"A\" version=\"1.0.2-1\"/>\n"
+             "</availablepackages>\n"), func, QString(), searchHash);
+
+        searchHash.clear();
+        searchHash.insert("Default", "false");
+        verifyListPackagesMessage(core, QLatin1String("<availablepackages>\n"
+             "    <package name=\"B\" displayname=\"B\" version=\"1.0.0-1\"/>\n"
+             "</availablepackages>\n"), func, QString(), searchHash);
+
+        // Need to change rules here to catch messages
+        QLoggingCategory::setFilterRules("ifw.* = true\n");
+
+        QTest::ignoreMessage(QtDebugMsg, "No matching packages found.");
+        core->listAvailablePackages(QLatin1String("C.virt"));
+
+        QTest::ignoreMessage(QtDebugMsg, "No matching packages found.");
+        core->listAvailablePackages(QLatin1String("C.virt.subcomponent"));
     }
 
     void testInstallPackageFails()
@@ -94,26 +121,31 @@ private slots:
 
         QLoggingCategory::setFilterRules(loggingRules);
 
-        QTest::ignoreMessage(QtDebugMsg, "\"Preparing meta information download...\"");
-        QTest::ignoreMessage(QtDebugMsg, "Cannot install component A. Component is installed only as automatic dependency to autoDep.");
-        QCOMPARE(PackageManagerCore::Success, core->installSelectedComponentsSilently(QStringList()
+        QTest::ignoreMessage(QtDebugMsg, "Preparing meta information download...");
+        QTest::ignoreMessage(QtDebugMsg, "Cannot install component A. Component is installed only as automatic dependency to autoDep.\n");
+        QCOMPARE(PackageManagerCore::Canceled, core->installSelectedComponentsSilently(QStringList()
                 << QLatin1String("A")));
 
-        QTest::ignoreMessage(QtDebugMsg, "\"Preparing meta information download...\"");
-        QTest::ignoreMessage(QtDebugMsg, "Cannot install component AB. Component is not checkable meaning you have to select one of the subcomponents.");
-        QCOMPARE(PackageManagerCore::Success, core->installSelectedComponentsSilently(QStringList()
+        QTest::ignoreMessage(QtDebugMsg, "Preparing meta information download...");
+        QTest::ignoreMessage(QtDebugMsg, "Cannot install component AB. Component is not checkable, meaning you have to select one of the subcomponents.\n");
+        QCOMPARE(PackageManagerCore::Canceled, core->installSelectedComponentsSilently(QStringList()
                 << QLatin1String("AB")));
 
-        QTest::ignoreMessage(QtDebugMsg, "\"Preparing meta information download...\"");
-        QTest::ignoreMessage(QtDebugMsg, "Cannot install B. Component is virtual.");
-        QCOMPARE(PackageManagerCore::Success, core->installSelectedComponentsSilently(QStringList()
+        QTest::ignoreMessage(QtDebugMsg, "Preparing meta information download...");
+        QTest::ignoreMessage(QtDebugMsg, "Cannot install B. Component is virtual.\n");
+        QCOMPARE(PackageManagerCore::Canceled, core->installSelectedComponentsSilently(QStringList()
                 << QLatin1String("B")));
 
-        QTest::ignoreMessage(QtDebugMsg, "\"Preparing meta information download...\"");
-        QTest::ignoreMessage(QtDebugMsg, "Cannot install MissingComponent. Component not found.");
-        QCOMPARE(PackageManagerCore::Success, core->installSelectedComponentsSilently(QStringList()
+        QTest::ignoreMessage(QtDebugMsg, "Preparing meta information download...");
+        QTest::ignoreMessage(QtDebugMsg, "Cannot install B.subcomponent. Component is a descendant of a virtual component B.\n");
+        QCOMPARE(PackageManagerCore::Canceled, core->installSelectedComponentsSilently(QStringList()
+                << QLatin1String("B.subcomponent")));
+
+        QTest::ignoreMessage(QtDebugMsg, "Preparing meta information download...");
+        QTest::ignoreMessage(QtDebugMsg, "Cannot install MissingComponent. Component not found.\n");
+        QCOMPARE(PackageManagerCore::Canceled, core->installSelectedComponentsSilently(QStringList()
                 << QLatin1String("MissingComponent")));
-        QCOMPARE(PackageManagerCore::Success, core->status());
+        QCOMPARE(PackageManagerCore::Canceled, core->status());
     }
 
     void testUninstallPackageFails()
@@ -151,11 +183,11 @@ private slots:
 
     void testListInstalledPackages()
     {
-        QString loggingRules = (QLatin1String("ifw.* = false\n"
-                                              "ifw.package.name = true\n"));
+        QString loggingRules = (QLatin1String("ifw.* = false\n"));
         PackageManagerCore core;
         core.setPackageManager();
         QLoggingCategory::setFilterRules(loggingRules);
+        auto func = &PackageManagerCore::listInstalledPackages;
 
         const QString testDirectory = QInstaller::generateTemporaryFileName();
         QVERIFY(QDir().mkpath(testDirectory));
@@ -163,9 +195,15 @@ private slots:
 
         core.setValue(scTargetDir, testDirectory);
 
-        QTest::ignoreMessage(QtDebugMsg, "Id: A");
-        QTest::ignoreMessage(QtDebugMsg, "Id: B");
-        core.listInstalledPackages();
+        verifyListPackagesMessage(&core, QLatin1String("<localpackages>\n"
+            "    <package name=\"A\" displayname=\"A Title\" version=\"1.0.2-1\"/>\n"
+            "    <package name=\"B\" displayname=\"B Title\" version=\"1.0.0-1\"/>\n"
+            "</localpackages>\n"), func, QString());
+
+        verifyListPackagesMessage(&core, QLatin1String("<localpackages>\n"
+            "    <package name=\"A\" displayname=\"A Title\" version=\"1.0.2-1\"/>\n"
+            "</localpackages>\n"), func, QLatin1String("A"));
+
         QDir dir(testDirectory);
         QVERIFY(dir.removeRecursively());
     }
@@ -267,10 +305,11 @@ private slots:
         VerifyInstaller::verifyInstallerResources(m_installDir, "componentB", "1.0.0content.txt"); //Dependency for componentC
         VerifyInstaller::verifyInstallerResources(m_installDir, "componentE", "1.0.0content.txt"); //ForcedInstall
         VerifyInstaller::verifyInstallerResources(m_installDir, "componentG", "1.0.0content.txt"); //Depends on componentA
+        VerifyInstaller::verifyInstallerResources(m_installDir, "componentI", "1.0.0content.txt"); //Virtual, depends on componentC
         VerifyInstaller::verifyInstallerResources(m_installDir, "componentD", "1.0.0content.txt"); //Autodepend on componentA and componentB
         VerifyInstaller::verifyFileExistence(m_installDir, QStringList() << "components.xml" << "installcontentC.txt"
                             << "installcontent.txt" << "installcontentA.txt" << "installcontentB.txt"
-                            << "installcontentD.txt"<< "installcontentE.txt" << "installcontentG.txt");
+                            << "installcontentD.txt"<< "installcontentE.txt" << "installcontentG.txt" << "installcontentI.txt");
     }
 
     void testUninstallWithDependencySilently()
@@ -281,7 +320,7 @@ private slots:
                 << QLatin1String("componentC")));
         VerifyInstaller::verifyFileExistence(m_installDir, QStringList() << "components.xml" << "installcontentC.txt"
                             << "installcontent.txt" << "installcontentA.txt" << "installcontentB.txt"
-                            << "installcontentD.txt"<< "installcontentE.txt" << "installcontentG.txt");
+                            << "installcontentD.txt"<< "installcontentE.txt" << "installcontentG.txt" << "installcontentI.txt");
 
         core->commitSessionOperations();
         core->setPackageManager();
@@ -294,6 +333,7 @@ private slots:
         VerifyInstaller::verifyInstallerResources(m_installDir, "componentG", "1.0.0content.txt"); //Depends on componentA
         VerifyInstaller::verifyInstallerResources(m_installDir, "componentD", "1.0.0content.txt"); //Autodepend on componentA and componentB
         VerifyInstaller::verifyInstallerResourcesDeletion(m_installDir, "componentC");
+        VerifyInstaller::verifyInstallerResourcesDeletion(m_installDir, "componentI"); //Virtual, depends on componentC
         VerifyInstaller::verifyFileExistence(m_installDir, QStringList() << "components.xml"
                             << "installcontent.txt" << "installcontentA.txt" << "installcontentB.txt"
                             << "installcontentD.txt"<< "installcontentE.txt" << "installcontentG.txt");
@@ -472,10 +512,30 @@ private slots:
         QVERIFY(QDir().mkpath(m_installDir));
     }
 
+    void initTestCase()
+    {
+        qSetGlobalQHashSeed(0); //Ensures the dom document deterministic behavior
+    }
+
     void cleanup()
     {
         QDir dir(m_installDir);
         QVERIFY(dir.removeRecursively());
+    }
+
+private:
+    template <typename Func, typename... Args>
+    void verifyListPackagesMessage(PackageManagerCore *core, const QString &message,
+                                   Func func, Args... args)
+    {
+        std::ostringstream stream;
+        std::streambuf *buf = std::cout.rdbuf();
+        std::cout.rdbuf(stream.rdbuf());
+
+        (core->*func)(std::forward<Args>(args)...);
+
+        std::cout.rdbuf(buf);
+        QVERIFY(stream && stream.str() == message.toStdString());
     }
 
 private:

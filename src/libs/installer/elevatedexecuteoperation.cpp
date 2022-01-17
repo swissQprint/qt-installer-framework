@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -31,6 +31,7 @@
 #include "environment.h"
 #include "qprocesswrapper.h"
 #include "globals.h"
+#include "packagemanagercore.h"
 
 #include <QtCore/QDebug>
 #include <QtCore/QProcessEnvironment>
@@ -60,7 +61,11 @@ private:
 
 public:
     void readProcessOutput();
-    bool run(const QStringList &arguments);
+    int run(QStringList &arguments, const OperationType type);
+
+private:
+    bool needsRerunWithReplacedVariables(QStringList &arguments, const OperationType type);
+
 
     QProcessWrapper *process;
     bool showStandardError;
@@ -72,6 +77,7 @@ ElevatedExecuteOperation::ElevatedExecuteOperation(PackageManagerCore *core)
 {
     // this operation has to "overwrite" the Execute operation from KDUpdater
     setName(QLatin1String("Execute"));
+    setRequiresUnreplacedVariables(true);
 }
 
 ElevatedExecuteOperation::~ElevatedExecuteOperation()
@@ -94,10 +100,14 @@ bool ElevatedExecuteOperation::performOperation()
             break; //we don't need the UNDOEXECUTE args here
     }
 
-    return d->run(args);
+    if (requiresUnreplacedVariables()) {
+        PackageManagerCore *const core = packageManager();
+        args = core->replaceVariables(args);
+    }
+    return d->run(args, Operation::Perform) ? false : true;
 }
 
-bool ElevatedExecuteOperation::Private::run(const QStringList &arguments)
+int ElevatedExecuteOperation::Private::run(QStringList &arguments, const OperationType type)
 {
     QStringList args = arguments;
     QString workingDirectory;
@@ -141,13 +151,15 @@ bool ElevatedExecuteOperation::Private::run(const QStringList &arguments)
 
     // unix style: when there's an ampersand after the command, it's started detached
     if (args.count() >= 2 && args.last() == QLatin1String("&")) {
+        int returnValue = NoError;
         args.pop_back();
         const bool success = QProcessWrapper::startDetached(args.front(), args.mid(1));
         if (!success) {
             q->setError(UserDefinedError);
             q->setErrorString(tr("Cannot start detached: \"%1\"").arg(callstr));
+            returnValue = Error;
         }
-        return success;
+        return returnValue;
     }
 
     process = new QProcessWrapper();
@@ -157,7 +169,7 @@ bool ElevatedExecuteOperation::Private::run(const QStringList &arguments)
             << workingDirectory;
     }
 
-    QProcessEnvironment penv;
+    QProcessEnvironment penv = QProcessEnvironment::systemEnvironment();
     // there is no way to serialize a QProcessEnvironment properly other than per mangled QStringList:
     // (i.e. no other way to list all keys)
     process->setEnvironment(KDUpdater::Environment::instance().applyTo(penv).toStringList());
@@ -186,13 +198,17 @@ bool ElevatedExecuteOperation::Private::run(const QStringList &arguments)
         success = process->waitForFinished(-1);
     }
 
-    bool returnValue = true;
+    int returnValue = NoError;
     if (!success) {
         q->setError(UserDefinedError);
         //TODO: pass errorString() through the wrapper */
         q->setErrorString(tr("Cannot start: \"%1\": %2").arg(callstr,
             process->errorString()));
-        returnValue = false;
+        if (!needsRerunWithReplacedVariables(arguments, type)) {
+            returnValue = Error;
+        } else {
+            returnValue = NeedsRerun;
+        }
     }
 
     if (QThread::currentThread() == qApp->thread()) {
@@ -207,32 +223,57 @@ bool ElevatedExecuteOperation::Private::run(const QStringList &arguments)
     if (process->exitStatus() == QProcessWrapper::CrashExit) {
         q->setError(UserDefinedError);
         q->setErrorString(tr("Program crashed: \"%1\"").arg(callstr));
-        returnValue = false;
+        returnValue = Error;
     }
 
-    if (!allowedExitCodes.contains(process->exitCode())) {
-        q->setError(UserDefinedError);
-        if (customErrorMessage.isEmpty()) {
-            q->setErrorString(tr("Execution failed (Unexpected exit code: %1): \"%2\"")
-                .arg(QString::number(process->exitCode()), callstr));
+    if (!allowedExitCodes.contains(process->exitCode()) && returnValue != NeedsRerun) {
+        if (!needsRerunWithReplacedVariables(arguments, type)) {
+            q->setError(UserDefinedError);
+            if (customErrorMessage.isEmpty()) {
+                q->setErrorString(tr("Execution failed (Unexpected exit code: %1): \"%2\"")
+                    .arg(QString::number(process->exitCode()), callstr));
+            } else {
+                q->setErrorString(customErrorMessage);
+            }
+
+            QByteArray standardErrorOutput = process->readAllStandardError();
+            // in error case it would be useful to see something in verbose output
+            if (!standardErrorOutput.isEmpty())
+                qCWarning(QInstaller::lcInstallerInstallLog).noquote() << standardErrorOutput;
+
+            returnValue = Error;
         } else {
-            q->setErrorString(customErrorMessage);
+            returnValue = NeedsRerun;
         }
-
-        QByteArray standardErrorOutput = process->readAllStandardError();
-        // in error case it would be useful to see something in verbose output
-        if (!standardErrorOutput.isEmpty())
-            qCWarning(QInstaller::lcInstallerInstallLog).noquote() << standardErrorOutput;
-
-        returnValue = false;
     }
-
     Q_ASSERT(process);
     Q_ASSERT(process->state() == QProcessWrapper::NotRunning);
     delete process;
     process = nullptr;
 
     return returnValue;
+}
+
+bool ElevatedExecuteOperation::Private::needsRerunWithReplacedVariables(QStringList &arguments, const OperationType type)
+{
+    if (type != Operation::Undo)
+        return false;
+    bool rerun = false;
+    PackageManagerCore *const core = q->packageManager();
+    for (int i = 0; i < arguments.count(); i++) {
+        QString key = core->key(arguments.at(i));
+        if (!key.isEmpty() && key.endsWith(QLatin1String("_OLD"))) {
+            key.remove(key.length() - 4, 4);
+            if (core->containsValue(key)) {
+                key.prepend(QLatin1String("@"));
+                key.append(QLatin1String("@"));
+                QString value = core->replaceVariables(key);
+                arguments.replace(i, value);
+                rerun = true;
+            }
+        }
+    }
+    return rerun;
 }
 
 /*!
@@ -262,7 +303,6 @@ void ElevatedExecuteOperation::Private::readProcessOutput()
     }
 }
 
-
 bool ElevatedExecuteOperation::undoOperation()
 {
     QStringList args;
@@ -276,7 +316,21 @@ bool ElevatedExecuteOperation::undoOperation()
     if (args.isEmpty())
         return true;
 
-    return d->run(args);
+    if (requiresUnreplacedVariables()) {
+        PackageManagerCore *const core = packageManager();
+        args = core->replaceVariables(args);
+    }
+
+    int returnValue = d->run(args, Operation::Undo);
+    if (returnValue == NeedsRerun) {
+        qCDebug(QInstaller::lcInstallerInstallLog).noquote() << QString::fromLatin1("Failed to run "
+            "undo operation \"%1\" for component %2. Trying again with arguments %3").arg(name(),
+            value(QLatin1String("component")).toString(), args.join(QLatin1String(", ")));
+        setError(NoError);
+        setErrorString(QString());
+        returnValue = d->run(args, Operation::Undo);
+    }
+    return returnValue ? false : true;
 }
 
 bool ElevatedExecuteOperation::testOperation()

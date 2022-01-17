@@ -108,6 +108,30 @@ private slots:
         core->setFoundEssentialUpdate(false);
     }
 
+    void testUpdateForceUpdatePackagesSilently()
+    {
+        setRepository(":///data/installPackagesRepository");
+        QCOMPARE(PackageManagerCore::Success, core->installSelectedComponentsSilently(QStringList()
+                << "componentH"));
+        VerifyInstaller::verifyInstallerResources(m_installDir, "componentH", "1.0.0content.txt");
+        VerifyInstaller::verifyInstallerResources(m_installDir, "componentE", "1.0.0content.txt");
+        VerifyInstaller::verifyFileExistence(m_installDir, QStringList() << "components.xml"
+                << "installcontentA_update.txt" << "installcontentE.txt" << "installcontentG.txt"
+                << "installContentAutoDependOnA.txt" << "installcontentH.txt");
+        core->commitSessionOperations();
+
+        setRepository(":///data/installPackagesRepositoryUpdate");
+        QCOMPARE(PackageManagerCore::EssentialUpdated, core->updateComponentsSilently(QStringList()));
+        VerifyInstaller::verifyInstallerResourceFileDeletion(m_installDir, "componentH", "1.0.0content.txt");
+        VerifyInstaller::verifyInstallerResources(m_installDir, "componentH", "2.0.0content.txt");
+        //Verify that no other installed components got update
+        VerifyInstaller::verifyInstallerResources(m_installDir, "componentE", "1.0.0content.txt");
+        VerifyInstaller::verifyFileExistence(m_installDir, QStringList() << "components.xml"
+                << "installcontentA_update.txt" << "installcontentE.txt" << "installcontentG.txt"
+                << "installContentAutoDependOnA.txt" << "installcontentH_update.txt");
+        core->setFoundEssentialUpdate(false);
+    }
+
     void testUpdatePackageSilently()
     {
         setRepository(":///data/installPackagesRepository");
@@ -122,7 +146,7 @@ private slots:
         VerifyInstaller::verifyFileExistence(m_installDir, QStringList() << "components.xml"
                            << "installcontentA_update.txt" << "installcontentE.txt" << "installcontentG.txt"
                            << "installcontentB.txt" << "installcontentD.txt"
-                           << "installContentAutoDependOnA.txt");
+                           << "installContentAutoDependOnA.txt" << "installcontentH_update.txt");
         core->commitSessionOperations();
 
         setRepository(":///data/installPackagesRepositoryUpdate");
@@ -141,26 +165,19 @@ private slots:
         VerifyInstaller::verifyFileExistence(m_installDir, QStringList() << "components.xml" << "installcontentA_update.txt"
                            << "installcontentE_update.txt" << "installcontentG.txt"
                            << "installcontentB_update.txt" << "installcontentD_update.txt"
-                           << "installContentAutoDependOnA.txt");
+                           << "installContentAutoDependOnA.txt" << "installcontentH_update.txt");
     }
 
     void testUpdateNoUpdatesForSelectedPackage()
     {
         setRepository(":///data/installPackagesRepositoryUpdate");
-        // Succeeds as no updates available for component so nothing to do
-        QCOMPARE(PackageManagerCore::Success, core->updateComponentsSilently(QStringList()
+        // No updates available for component so nothing to do
+        QCOMPARE(PackageManagerCore::Canceled, core->updateComponentsSilently(QStringList()
                 << "componentInvalid"));
     }
 
     void testUpdateTwoPackageSilently()
     {
-        setRepository(":///data/installPackagesRepository");
-        QCOMPARE(PackageManagerCore::Success, core->installSelectedComponentsSilently(QStringList()
-                << "componentA" << "componentB" << "componentG"));
-        VerifyInstaller::verifyInstallerResources(m_installDir, "componentB", "2.0.0content.txt");
-        VerifyInstaller::verifyInstallerResources(m_installDir, "componentG", "1.0.0content.txt");
-        core->commitSessionOperations();
-
         setRepository(":///data/installPackagesRepositoryUpdate");
         QCOMPARE(PackageManagerCore::Success, core->updateComponentsSilently(QStringList()
                 << "componentB" << "componentG"));

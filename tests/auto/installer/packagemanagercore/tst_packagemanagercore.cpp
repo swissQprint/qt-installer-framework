@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -46,7 +46,7 @@ using namespace QInstaller;
 class DummyComponent : public Component
 {
 public:
-    DummyComponent(PackageManagerCore *core)
+    explicit DummyComponent(PackageManagerCore *core)
         : Component(core)
     {
         setCheckState(Qt::Checked);
@@ -306,7 +306,7 @@ private slots:
         QTest::ignoreMessage(QtWarningMsg, re);
         QTest::ignoreMessage(QtDebugMsg, "No updates available.");
 
-        QCOMPARE(PackageManagerCore::Failure, core.updateComponentsSilently(QStringList()));
+        QCOMPARE(PackageManagerCore::Canceled, core.updateComponentsSilently(QStringList()));
         QVERIFY(QDir().rmdir(testDirectory));
     }
 
@@ -321,10 +321,15 @@ private slots:
         QVERIFY(QDir().mkpath(testDirectory));
         core.setValue(scTargetDir, testDirectory);
 
-        const QString warningMessage =  QString("Unable to update components. Please stop these processes: ");
-        const QRegularExpression re(warningMessage);
-        QTest::ignoreMessage(QtWarningMsg, re);
+        const QString warningMessageUp =  QString("Unable to update components. Please stop these processes: ");
+        const QRegularExpression reUp(warningMessageUp);
+        QTest::ignoreMessage(QtWarningMsg, reUp);
         QVERIFY_EXCEPTION_THROWN(core.updateComponentsSilently(QStringList()), Error);
+
+        const QString warningMessageRm =  QString("Unable to remove components. Please stop these processes: ");
+        const QRegularExpression reRm(warningMessageRm);
+        QTest::ignoreMessage(QtWarningMsg, reRm);
+        QVERIFY_EXCEPTION_THROWN(core.removeInstallationSilently(), Error);
 
         QVERIFY(QDir().rmdir(testDirectory));
     }
@@ -364,6 +369,28 @@ private slots:
         QCOMPARE(core->value("Title"), QLatin1String("Overwritten Title"));
         QCOMPARE(core->value("RootDir"), QLatin1String("Overwritten RootDir"));
         core->deleteLater();
+    }
+
+    void testToFromNativeSeparators_data()
+    {
+        QTest::addColumn<QString>("path");
+        QTest::newRow("Slash separator") << "a/test/path";
+        QTest::newRow("Backslash separator") << "a\\test\\path";
+        QTest::newRow("Mixed separators") << "a/test\\path";
+    }
+
+    void testToFromNativeSeparators()
+    {
+        QFETCH(QString, path);
+
+        PackageManagerCore core;
+#ifdef Q_OS_WIN
+        QCOMPARE(core.toNativeSeparators(path), "a\\test\\path");
+        QCOMPARE(core.fromNativeSeparators(path), "a/test/path");
+#else
+        QCOMPARE(core.toNativeSeparators(path), path);
+        QCOMPARE(core.fromNativeSeparators(path), path);
+#endif
     }
 };
 

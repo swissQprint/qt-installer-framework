@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -32,7 +32,6 @@
 // **********************************************************************
 
 /*!
-    \contentspage{index.html}{Qt Installer Framework}
     \page index.html
     \nextpage ifw-overview.html
 
@@ -85,7 +84,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-tutorial.html
     \page ifw-creating-installers.html
     \nextpage ifw-offline-installers.html
@@ -106,7 +104,7 @@
             \l{Configuration File}.
 
         \li Create a package information file called \c package.xml in the
-            \c {config\meta} directory. It contains settings for deployment and
+            \c {packages\{component}\meta} directory. It contains settings for deployment and
             the installation process. For more information, see
             \l{Meta Directory}.
 
@@ -136,7 +134,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-reference.html
     \page ifw-cli.html
     \nextpage ifw-globalconfig.html
@@ -223,13 +220,17 @@
             \li -t, --root <directory>
             \li [CLI] Set the installation root directory.
         \row
+            \li --oi, --offline-installer-name <filename>
+            \li [CLI] Set custom filename for the generated offline installer. Without this
+                the original filename is used with an added "_offline-yyyy-MM-dd" suffix.
+        \row
             \li -p, --platform <plugin>
             \li Use the specified platform plugin.
         \row
             \li --nf, --no-force-installations
             \li Allow deselecting components that are marked as forced.
         \row
-            \li --no-default-installations
+            \li --nd, --no-default-installations
             \li Deselects components that are marked as default.
         \row
             \li --ns, --no-size-checking
@@ -246,27 +247,35 @@
             \li Create a local repository inside the installation directory. This option has no
                 effect on online installers.
         \row
-            \li --accept-messages
+            \li --fp, --filter-packages <element=regex,...>
+            \li [CLI] Comma separated list of additional key-value pair filters used to query packages with the
+                search command. The keys can be any of the possible package information elements, like
+                \c DisplayName and \c Description.
+        \row
+            \li --am, --accept-messages
             \li [CLI] Accepts all message queries without user input.
         \row
-            \li --reject-messages
+            \li --rm, --reject-messages
             \li [CLI] Rejects all message queries without user input.
         \row
-            \li --auto-answer <identifier=value>
+            \li --aa, --auto-answer <identifier=value>
             \li [CLI] Automatically answers the message queries with the message identifier and a button
                 value. Several \c{identifier=value} pairs can be given separated with a comma, for example
                 \c{--auto-answer message.id=Ok,message.id2=Cancel}.
         \row
-            \li --default-answer
+            \li --da, --default-answer
             \li [CLI] Automatically answers to message queries with their default values.
         \row
-            \li --accept-licenses
+            \li --al, --accept-licenses
             \li [CLI] Accepts all licenses without user input.
         \row
             \li --file-query <identifier=value>
             \li [CLI] Automatically sets the QFileDialog values getExistingDirectory() or
                 getOpenFileName() requested by the install script. Several \c{identifier=value} pairs can be
                 given separated with a comma, for example \c{--file-query filedialog.id=C:Temp,filedialog.id2=C:Temp2}.
+        \row
+            \li -c, --confirm-command
+            \li [CLI] Confirms starting of installation, update or removal of components without user input.
         \row
             \li -s, --script <file>
             \li Execute the script given as an argument.
@@ -307,11 +316,17 @@
             \li rm, remove <pkg ...>
             \li Uninstall selected packages and their child components.
         \row
-            \li li, list
+            \li li, list <regexp>
             \li List information about currently installed packages.
         \row
             \li se, search <regexp>
             \li Search available packages. If no search pattern is given, show all available packages.
+
+                \note The \c --filter-packages option can be used to specify additional filters for
+                the search operation. See \l{Summary of Options}.
+        \row
+            \li co, create-offline <pkg ...>
+            \li Create offline installer from selected packages.
         \row
             \li pr, purge
             \li Uninstall all packages and remove the program directory.
@@ -319,7 +334,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-cli.html
     \page ifw-globalconfig.html
     \nextpage ifw-component-description.html
@@ -421,6 +435,14 @@
                 override this. You can add the \c em or \c ex suffix to the specified value to
                 use the \e em or \e ex unit, as in a CSS file.
         \row
+            \li WizardMinimumWidth
+            \li Sets the minimum width of the wizard in pixels. You can add the \c em or \c ex
+                suffix to the specified value to use the \e em or \e ex unit, as in a CSS file.
+        \row
+            \li WizardMinimumHeight
+            \li Sets the minimum height of the wizard in pixels. You can add the \c em or \c ex
+                suffix to the specified value to use the \e em or \e ex unit, as in a CSS file.
+        \row
             \li WizardShowPageList
             \li Set to \c false if the widget listing installer pages on the left side of the
                 wizard should not be shown. Defaults to \c true. If visible, this widget hides
@@ -511,9 +533,10 @@
             \li Filename for the configuration file on the target. Default is components.xml.
         \row
             \li Translations
-            \li List of language codes to be used for translating the user interface. To add several language
-                variants, specify several \c <Translation> child elements that each specify the name
-                of a language variant. Optional. For more information, see \l{Translating Pages}.
+            \li List of translation files to be used for translating the user interface. To add
+                several translation files, specify several \c <Translation> child elements that
+                each specify the name of the translation. Optional. For more information, see
+                \l{Translating Pages} and \l{Configuring and Overwriting Default Translations}.
         \row
             \li UrlQueryString
             \li This string needs to be in the form "key=value" and will be appended to archive download
@@ -553,7 +576,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-updates.html
     \page ifw-customizing-installers.html
     \nextpage Qt Installer Framework Examples
@@ -700,23 +722,36 @@
         </Translations>
     \endcode
 
-    Use the \c {qsTr()} function for literal text within scripts. Additionally,
+    Use the \c {qsTranslate()} function for literal text within scripts. Additionally,
     you can add the \c Component.prototype.retranslateUi method to the script.
     It is called when the language of the installer changes and the translation
     file is loaded.
 
-    The context being used for translation is the basename of the script file
-    when using \c qsTr or the class name of the UI file when translating a user
-    interface. For example, if the script file is called \c installscript.qs, the
-    context will be installscript.
-
     \note The translation system can also be used to customize the UI. Use e.g.
     an \c en.ts file to replace any text in the installer with a custom English
     version.
+
+    \section1 Configuring and Overwriting Default Translations
+
+    The installer has been localized into several languages. System language is used to define the
+    loaded language. In case you want to define the used language for your installer, define the
+    languages in \c config.xml using the \c <Translations> element. For example, using only German
+    translations:
+
+    \code
+        <Translations>
+            <Translation>ifw_de</Translation>
+            <Translation>qt_de</Translation>
+        </Translations>
+    \endcode
+
+    The default translations can be also overwritten. Write your own translation file and add
+    it to a custom resource called \c :/translations_new. This custom resource can be added to
+    the installer using \c binarycreator option \c -r. For more information, see
+    \l{Summary of binarycreator Parameters}.
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-globalconfig.html
     \page ifw-component-description.html
     \nextpage noninteractive.html
@@ -731,7 +766,9 @@
 
     Place all components in the same root directory, which is called the
     \e {package directory}. The directory name acts as a domain-like identifier,
-    which identifies all components. For example, \c com.vendor.root.
+    which identifies all components. For example, \c com.vendor.root. The directory
+    name must not contain \c : or \c - characters as those are reserved for separating
+    the version number from the identifier.
 
     Within the root directory, create subdirectories called \c data and \c meta.
 
@@ -839,7 +876,8 @@
             \li Licenses
             \li List of license agreements to be accepted by the installing
                 user. To add several licenses, add several \c <License> child
-                elements that each specify the license \c name and \c file.
+                elements that each specify the license \c name and \c file and,
+                optionally, \c priority.
                 ASCII and UTF8 file formats are supported for license files.
 
                 If there are translations listed for this component, the installer
@@ -863,8 +901,10 @@
             \li Translations
             \li List of translation files to load. To add several language
                 variants, specify several \c <Translation> child elements that each
-                specify the filename of a language variant. Optional. For more
-                information, see \l{Translating Pages}.
+                specify the filename of a language variant. The installer loads the
+                translation file that matches the current system locale. For example,
+                if the system locale is German, the de.qm file is loaded. Optional.
+                For more information, see \l{Translating Pages}.
         \row
             \li UpdateText
             \li Description added to the component description if this is an
@@ -891,6 +931,12 @@
             \li Determines that the package must always be installed. End users
                 cannot deselect it in the installer.
         \row
+            \li ForcedUpdate
+            \li Marks the package as \c ForcedUpdate to force a restart of the
+                \c MaintenanceTool. If there are updates available
+                for a \c ForcedUpdate component, the package manager stays
+                disabled until that component is updated.
+        \row
             \li Replaces
             \li Comma-separated list of components to replace. Optional.
 
@@ -914,6 +960,22 @@
             \li ExpandedByDefault
             \li Set to \c true if you want this item to be expanded by default. Optional.
 
+        \row
+            \li Operations
+            \li List of operations that are performed when component is installed. To add
+                several operations, specify several \c <Operation> child elements that each
+                specify the operation \c name. \c Operation can have several \c <Argument>
+                child elements depending on the operation to be run. Adding \c <Operations>
+                is an alternative way of defining operations to defining them in scripts.
+                For more information, see \l{Adding Operations}. For a
+                summary of available operations, see \l {Operations}.
+
+        \row
+            \li TreeName
+            \li Specifies the component location in the install tree view. Overwrites the original
+                location which is calculated from component name. Component names and tree names
+                must be unique. Optional.
+
     \endtable
 
     \section2 Component Dependencies
@@ -932,13 +994,19 @@
     \section1 Data Directory
 
     The \c data directory contains the content that the installer extracts
-    during the installation. You must package the data as a 7zip archive (.7z).
-    You can use either the \l archivegen tool that is delivered with the Qt
-    Installer Framework or some other tool that generates 7zip archives.
+    during the installation. The data must be packaged into archive files. This is either
+    done automatically by \l binarycreator and \l repogen when creating an installer or
+    a repository, respectively, or you can do this beforehand for more control.
+
+    For manual archive creation you can use either the \l archivegen tool that is
+    delivered with the Qt Installer Framework or some other tool that generates archives in
+    any of the file formats: \c{7z}, \c{zip}, \c{tar.gz}, \c{tar.bz2} and \c{tar.xz}.
+
+    \note If the Installer Framework tools were built without libarchive support,
+    only \c{7z} format is supported.
 */
 
 /*!
-    \contentspage index.html
     \previouspage operations.html
     \page ifw-tools.html
     \nextpage Scripting API
@@ -1091,6 +1159,25 @@
             \li -s or --sign identity
             \li Only available on macOS. Allows specifying a code signing identity to be
                 used for signing the generated app bundle.
+        \row
+            \li --af or --archive-format 7z|zip|tar.gz|tar.bz2|tar.xz
+            \li Set the format used when packaging new component data archives. If
+                you omit this option, the 7z format will be used as a default.
+                \note If the Installer Framework tools were built without libarchive
+                support, only \c{7z} format is supported.
+        \row
+            \li --ac or --compression <5>
+            \li Defaults to 5 (Normal compression). \note Some formats do not support
+                all the possible values, for example bzip2 compression only supports
+                values from 1 to 9.
+                \list
+                    \li 0 (No compression)
+                    \li 1 (Fastest compressing)
+                    \li 3 (Fast compressing)
+                    \li 5 (Normal compressing)
+                    \li 7 (Maximum compressing)
+                    \li 9 (Ultra compressing)
+                \endlist
     \endtable
 
     These parameters are followed by the name of the target binary and a list
@@ -1184,6 +1271,30 @@
         \row
             \li -v or --verbose
             \li Display debug output.
+         \row
+            \li -s or --sha-update p1,...,pn
+            \li Comma-separated list of packages to be updated based on the component sha
+                checksum instead of the version number. This parameter adds a new \c <ContentSha1>
+                node to the \c Updates.xml.
+         \row
+            \li --af or --archive-format 7z|zip|tar.gz|tar.bz2|tar.xz
+            \li Set the format used when packaging new component data archives. If
+                you omit this option, the 7z format will be used as a default.
+                \note If the Installer Framework tools were built without libarchive
+                support, only \c{7z} format is supported.
+        \row
+            \li --ac, --compression <5>
+            \li Defaults to 5 (Normal compression). \note Some formats do not support
+                all the possible values, for example bzip2 compression only supports
+                values from 1 to 9.
+                \list
+                    \li 0 (No compression)
+                    \li 1 (Fastest compressing)
+                    \li 3 (Fast compressing)
+                    \li 5 (Normal compressing)
+                    \li 7 (Maximum compressing)
+                    \li 9 (Ultra compressing)
+                \endlist
     \endtable
     \note We recommend that you use the \c {--update-new-packages} parameter
           to update an existing repository, especially if you have a content delivery
@@ -1194,19 +1305,57 @@
 
     \section1 archivegen
 
-    You can use \c archivegen to package files and directories into 7zip (.7z)
-    archives.
+    You can use \c archivegen to package files and directories into archives.
 
     The \c archivegen tool expects the following parameters in the following
     order:
 
     \code
-    archivegen <name.7z> <data>
+    archivegen <archive_name> <data>
     \endcode
 
-    Where \e <name.7z> is the path and file name of the archive to create and
+    Where \e <archive_name> is the path and file name of the archive to create and
     \e <data> contains the paths and names of the files or directories to
     package into the archive, separated by spaces.
+
+    \section2 Summary of archivegen Parameters
+
+    \table
+        \header
+            \li Parameter
+            \li Use
+        \row
+            \li -h, --help
+            \li Displays this help.
+        \row
+            \li -v, --version
+            \li Displays version information.
+        \row
+            \li -f, --format <format>
+            \li Format for the archive. Defaults to 7z.
+                \note If the Installer Framework tools were built without libarchive
+                support, only \c{7z} format is supported.
+                \list
+                    \li 7z (7z archive)
+                    \li zip (ZIP archive)
+                    \li tar.gz (gzip compressed tar archive)
+                    \li tar.bz2 (bzip2 compressed tar archive)
+                    \li tar.xz (xz compressed tar archive)
+                \endlist
+        \row
+            \li -c, --compression <5>
+            \li Defaults to 5 (Normal compression). \note Some formats do not support
+                all the possible values, for example bzip2 compression only supports
+                values from 1 to 9.
+                \list
+                    \li 0 (No compression)
+                    \li 1 (Fastest compressing)
+                    \li 3 (Fast compressing)
+                    \li 5 (Normal compressing)
+                    \li 7 (Maximum compressing)
+                    \li 9 (Ultra compressing)
+                \endlist
+    \endtable
 
     \section1 devtool
 
@@ -1257,7 +1406,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-offline-installers.html
     \page ifw-online-installers.html
     \nextpage ifw-updates.html
@@ -1401,7 +1549,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-creating-installers.html
     \page ifw-offline-installers.html
     \nextpage ifw-online-installers.html
@@ -1437,7 +1584,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-online-installers.html
     \page ifw-updates.html
     \nextpage ifw-customizing-installers.html
@@ -1599,7 +1745,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-cpp-classes.html
     \page ifw-knownissues.html
     \nextpage index.html

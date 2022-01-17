@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -26,7 +26,6 @@
 ****************************************************************************/
 
 /*!
-    \contentspage {index.html}{Qt Installer Framework}
     \previouspage ifw-getting-started.html
     \page ifw-use-cases.html
     \nextpage ifw-use-cases-install.html
@@ -61,7 +60,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-use-cases.html
     \page ifw-use-cases-install.html
     \nextpage ifw-use-cases-add.html
@@ -170,7 +168,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-use-cases-install.html
     \page ifw-use-cases-add.html
     \nextpage ifw-use-cases-remove.html
@@ -234,7 +231,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-use-cases-add.html
     \page ifw-use-cases-remove.html
     \nextpage ifw-use-cases-update.html
@@ -287,7 +283,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-use-cases-remove.html
     \page ifw-use-cases-update.html
     \nextpage ifw-use-cases-settings.html
@@ -338,7 +333,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-use-cases-update.html
     \page ifw-use-cases-settings.html
     \nextpage ifw-use-cases-cli.html
@@ -375,7 +369,6 @@
 */
 
 /*!
-    \contentspage index.html
     \previouspage ifw-use-cases-settings.html
     \page ifw-use-cases-cli.html
     \nextpage ifw-tutorial.html
@@ -419,9 +412,11 @@
     \section1 Updating Components
 
     Running \c update without arguments will update all components that have an update
-    available. Essential components are always updated first, same way as it is done when
-    launching updater from GUI. To update only a specific subset of installed components,
-    they can be provided as an optional argument for \c update:
+    available. Essential and ForcedUpdate components are always updated first, same way as
+    when launching the updater from GUI. After Essential and ForcedUpdate components
+    are updated, the installer needs to be restarted for other updates. To update only
+    a specific subset of installed components, they can be provided as an optional argument
+    for \c update:
 
     \code
     maintenancetool.exe update componentA componentB
@@ -441,7 +436,8 @@
     \section1 Listing Installed Components
 
     To get a list and print additional information about currently installed components, run the
-    \c list command with the maintenance tool:
+    \c list command with the maintenance tool. The command also accepts an optional regular
+    expression argument to filter the shown component list.
 
     \code
     maintenancetool.exe list
@@ -452,10 +448,12 @@
     The \c search command can be used to search components from available repositories, or
     from integrated binary content in case of an offline installer. It can be used with
     no arguments to list all available components or with a regular expression to get a list
-    of only components matching the pattern:
+    of only components matching the pattern. The \c --filter-packages option can be
+    used to specify additional filters for the search operation. For a list of usable
+    information elements with the option, refer to \l{Summary of Package Information File Elements}.
 
     \code
-    installer.exe search "expression"
+    installer.exe --filter-packages "DisplayName=MyComponent, Version=1.0" search "expression"
     \endcode
 
     \section1 Performing Full Uninstallation
@@ -467,6 +465,20 @@
     maintenancetool.exe purge
     \endcode
 
+    \section1 Creating Custom Offline Installers
+
+    To create a personal offline installer containing a selected set of components from online repositories,
+    use the \c create-offline command. This is a useful feature for scenarios where the same installation
+    content will be deployed multiple times or on several machines, as it saves time spent on downloading
+    component archives and enables easily reproducible installations. The \c --offline-installer-name
+    option can be used to set a desired name for the generated offline installer.
+
+    Note that you can create offline installers only from online installers with valid repositories enabled.
+
+    \code
+    installer.exe --root "C:\TargetFolder" --offline-installer-name "MyInstaller" create-offline componentA componentB
+    \endcode
+
     \section1 Unattended Usage
 
     By default, the generated installers may ask for additional information during installation,
@@ -474,7 +486,7 @@
     beforehand with appropriate options:
 
     \code
-    installer.exe --root "C:\MyInstallation" --accept-licenses --default-answer install componentA
+    installer.exe --root "C:\MyInstallation" --accept-licenses --default-answer --confirm-command install componentA
     \endcode
 
     In this example, \c --accept-licenses is used to automatically accept all license agreements
@@ -484,4 +496,9 @@
     queries, for example to confirm overwriting of an existing directory, you could use
     \c {--auto-answer OverwriteTargetDirectory=Yes}. Automatic answers are shown on the
     console output and installation log.
+
+    By default, the installer and maintenance tool will print a summary of components to be
+    affected by the command and then ask for permission to continue performing the action,
+    to prevent accidental changes. For unattended usage, this can be skipped by using the
+    \c --confirm-command option.
 */

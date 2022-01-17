@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -28,7 +28,6 @@
 
 #include "performinstallationform.h"
 
-#include "lazyplaintextedit.h"
 #include "progresscoordinator.h"
 #include "globals.h"
 
@@ -81,6 +80,7 @@ PerformInstallationForm::PerformInstallationForm(QObject *parent)
     : QObject(parent)
     , m_progressBar(nullptr)
     , m_progressLabel(nullptr)
+    , m_downloadStatus(nullptr)
     , m_productImagesScrollArea(nullptr)
     , m_productImagesLabel(nullptr)
     , m_detailsButton(nullptr)
@@ -121,6 +121,8 @@ void PerformInstallationForm::setupUi(QWidget *widget)
     m_downloadStatus = new QLabel(widget);
     m_downloadStatus->setObjectName(QLatin1String("DownloadStatus"));
     m_downloadStatus->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Minimum);
+    m_downloadStatus->setWordWrap(true);
+    m_downloadStatus->setTextFormat(Qt::TextFormat::RichText);
     topLayout->addWidget(m_downloadStatus);
     connect(ProgressCoordinator::instance(), &ProgressCoordinator::downloadStatusChanged, this,
         &PerformInstallationForm::onDownloadStatusChanged);
@@ -147,7 +149,7 @@ void PerformInstallationForm::setupUi(QWidget *widget)
     m_productImagesScrollArea->setWidget(m_productImagesLabel);
     bottomLayout->addWidget(m_productImagesScrollArea);
 
-    m_detailsBrowser = new LazyPlainTextEdit(widget);
+    m_detailsBrowser = new QTextEdit(widget);
     m_detailsBrowser->setReadOnly(true);
     m_detailsBrowser->setWordWrapMode(QTextOption::NoWrap);
     m_detailsBrowser->setObjectName(QLatin1String("DetailsBrowser"));
@@ -269,14 +271,6 @@ void PerformInstallationForm::setDetailsButtonEnabled(bool enable)
 }
 
 /*!
-    Scrolls to the bottom of the details browser.
-*/
-void PerformInstallationForm::scrollDetailsToTheEnd()
-{
-    m_detailsBrowser->updateCursor(LazyPlainTextEdit::TextCursorPosition::ForceEnd);
-}
-
-/*!
     Returns \c true if the details browser is visible.
 */
 bool PerformInstallationForm::isShowingDetails() const
@@ -290,8 +284,7 @@ bool PerformInstallationForm::isShowingDetails() const
 */
 void PerformInstallationForm::onDownloadStatusChanged(const QString &status)
 {
-    m_downloadStatus->setText(m_downloadStatus->fontMetrics().elidedText(status, Qt::ElideRight,
-        m_downloadStatus->width()));
+    m_downloadStatus->setText(status);
 }
 
 /*!

@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -54,6 +54,7 @@ ComponentPrivate::ComponentPrivate(PackageManagerCore *core, Component *qq)
     , m_autoCreateOperations(true)
     , m_operationsCreatedSuccessfully(true)
     , m_updateIsAvailable(false)
+    , m_unstable(false)
 {
 }
 
@@ -184,14 +185,6 @@ void ComponentModelHelper::setCheckable(bool checkable)
             setData(Qt::Unchecked, Qt::CheckStateRole);
     }
     changeFlags(checkable, Qt::ItemIsUserCheckable);
-}
-
-/*!
-    Returns whether the component is selectable by the user. The default value is \c true.
-*/
-bool ComponentModelHelper::isSelectable() const
-{
-    return (flags() & Qt::ItemIsSelectable) != 0;
 }
 
 /*!

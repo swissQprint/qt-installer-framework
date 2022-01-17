@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -88,27 +88,28 @@ bool ExtractArchiveOperation::performOperation()
 
     connect(&callback, &Callback::progressChanged, this, &ExtractArchiveOperation::progressChanged);
 
-    if (PackageManagerCore *core = packageManager()) {
-        connect(core, &PackageManagerCore::statusChanged, &callback, &Callback::statusChanged);
-    }
-
-    Runnable *runnable = new Runnable(archivePath, targetDir, &callback);
-    connect(runnable, &Runnable::finished, &receiver, &Receiver::runnableFinished,
+    Worker *worker = new Worker(archivePath, targetDir, &callback);
+    connect(worker, &Worker::finished, &receiver, &Receiver::workerFinished,
         Qt::QueuedConnection);
+
+    if (PackageManagerCore *core = packageManager())
+        connect(core, &PackageManagerCore::statusChanged, worker, &Worker::onStatusChanged);
 
     QFileInfo fileInfo(archivePath);
     emit outputTextChanged(tr("Extracting \"%1\"").arg(fileInfo.fileName()));
+    {
+        QEventLoop loop;
+        QThread workerThread;
+        worker->moveToThread(&workerThread);
 
-    QEventLoop loop;
-    connect(&receiver, &Receiver::finished, &loop, &QEventLoop::quit);
-    if (QThreadPool::globalInstance()->tryStart(runnable)) {
+        connect(&workerThread, &QThread::started, worker, &Worker::run);
+        connect(&receiver, &Receiver::finished, &workerThread, &QThread::quit);
+        connect(&workerThread, &QThread::finished, worker, &QObject::deleteLater);
+        connect(&workerThread, &QThread::finished, &loop, &QEventLoop::quit);
+
+        workerThread.start();
         loop.exec();
-    } else {
-        // HACK: In case there is no availabe thread we should call it directly.
-        runnable->run();
-        receiver.runnableFinished(true, QString());
     }
-
     // Write all file names which belongs to a package to a separate file and only the separate
     // filename to a .dat file. There can be enormous amount of files in a package, which makes
     // the dat file very slow to read and write. The .dat file is read into memory in startup,
@@ -122,8 +123,15 @@ bool ExtractArchiveOperation::performOperation()
 
     QStringList files = callback.extractedFiles();
 
-    QString fileDirectory = targetDir + QLatin1String("/installerResources/") +
-            archivePath.section(QLatin1Char('/'), 1, 1, QString::SectionSkipEmpty) + QLatin1Char('/');
+    QString installDir = targetDir;
+    // If we have package manager in use (normal installer run) then use
+    // TargetDir for saving filenames, otherwise those would be saved to
+    // extracted folder.
+    if (packageManager())
+        installDir = packageManager()->value(scTargetDir);
+    const QString resourcesPath = installDir + QLatin1Char('/') + QLatin1String("installerResources");
+    QString fileDirectory = resourcesPath + QLatin1Char('/') + archivePath.section(QLatin1Char('/'), 1, 1,
+                            QString::SectionSkipEmpty) + QLatin1Char('/');
     QString archiveFileName = archivePath.section(QLatin1Char('/'), 2, 2, QString::SectionSkipEmpty);
     QFileInfo fileInfo2(archiveFileName);
     QString suffix = fileInfo2.suffix();
@@ -136,12 +144,15 @@ bool ExtractArchiveOperation::performOperation()
     if (!dir.exists()) {
         dir.mkpath(targetDirectoryInfo.absolutePath());
     }
+    setDefaultFilePermissions(resourcesPath, DefaultFilePermissions::Executable);
+    setDefaultFilePermissions(targetDirectoryInfo.absolutePath(), DefaultFilePermissions::Executable);
+
     QFile file(targetDirectoryInfo.absolutePath() + QLatin1Char('/') + fileName);
     if (file.open(QIODevice::WriteOnly)) {
         setDefaultFilePermissions(file.fileName(), DefaultFilePermissions::NonExecutable);
         QDataStream out (&file);
         for (int i = 0; i < files.count(); ++i) {
-            files[i] = replacePath(files.at(i), targetDir, QLatin1String(scRelocatable));
+            files[i] = replacePath(files.at(i), installDir, QLatin1String(scRelocatable));
         }
         out << files;
         setValue(QLatin1String("files"), file.fileName());
@@ -153,7 +164,7 @@ bool ExtractArchiveOperation::performOperation()
     // TODO: Use backups for rollback, too? Doesn't work for uninstallation though.
 
     // delete all backups we can delete right now, remember the rest
-    foreach (const Backup &i, callback.backupFiles())
+    foreach (const QInstaller::Backup &i, callback.backupFiles())
         deleteFileNowOrLater(i.second);
 
     if (!receiver.success()) {
@@ -172,6 +183,8 @@ bool ExtractArchiveOperation::undoOperation()
     // If yes, files are listed in .dat instead of in a separate file.
     bool useStringListType(value(QLatin1String("files")).type() == QVariant::StringList);
     QString targetDir = arguments().at(1);
+    if (packageManager())
+        targetDir = packageManager()->value(scTargetDir);
     QStringList files;
     if (useStringListType) {
         files = value(QLatin1String("files")).toStringList();

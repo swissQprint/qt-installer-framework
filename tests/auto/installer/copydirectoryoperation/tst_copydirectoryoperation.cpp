@@ -43,6 +43,52 @@ class tst_copydirectoryoperation : public QObject
 {
     Q_OBJECT
 
+private:
+    void installFromCLI(const QString &repository)
+    {
+        QString installDir = QInstaller::generateTemporaryFileName();
+        QVERIFY(QDir().mkpath(installDir));
+        PackageManagerCore *core = PackageManager::getPackageManagerWithInit
+                (installDir, repository);
+
+        core->setValue(scTargetDir, installDir);
+        core->installDefaultComponentsSilently();
+
+        // Matches path in component install script
+        QFileInfo targetInfo(installDir + QDir::toNativeSeparators("/directory"));
+        QMap<QString, QByteArray> targetMap;
+        VerifyInstaller::addToFileMap(QDir(targetInfo.absoluteFilePath()), targetInfo, targetMap);
+
+        QFileInfo destinationInfo(installDir + QDir::toNativeSeparators("/destination/directory"));
+        QMap<QString, QByteArray> destinationMap;
+        VerifyInstaller::addToFileMap(QDir(destinationInfo.absoluteFilePath()), destinationInfo, destinationMap);
+
+        QVERIFY(targetMap == destinationMap);
+
+        core->setPackageManager();
+        core->commitSessionOperations();
+        core->uninstallComponentsSilently(QStringList() << "A");
+        QVERIFY(!destinationInfo.exists());
+
+        QDir dir(installDir);
+        QVERIFY(dir.removeRecursively());
+        core->deleteLater();
+    }
+
+    QStringList populateSourceDirectory()
+    {
+        QStringList fileEntries;
+        fileEntries << "file1" << "file2" << ".hidden1" << ".hidden2";
+
+        // Populate source directory
+        foreach (const QString &entry, fileEntries) {
+            QFile file(m_sourcePath + entry);
+            file.open(QFileDevice::ReadWrite);
+            file.close();
+        }
+        return fileEntries;
+    }
+
 private slots:
     void initTestCase()
     {
@@ -97,17 +143,9 @@ private slots:
 
     void testCopyDirectoryWithUndo()
     {
-        QStringList fileEntries;
-        fileEntries << "file1" << "file2" << ".hidden1" << ".hidden2";
+        const QStringList fileEntries = populateSourceDirectory();
 
-        // Populate source directory
-        foreach (const QString &entry, fileEntries) {
-            QFile file(m_sourcePath + entry);
-            QVERIFY(file.open(QFileDevice::ReadWrite));
-            file.close();
-        }
         CopyDirectoryOperation op(nullptr);
-
         op.setArguments(QStringList() << m_sourcePath << m_destinationPath);
         QVERIFY2(op.performOperation(), op.errorString().toLatin1());
 
@@ -117,6 +155,25 @@ private slots:
         QVERIFY2(op.undoOperation(), op.errorString().toLatin1());
         // Undo will delete the empty destination directory here
         QVERIFY(!QFileInfo(m_destinationPath).exists());
+    }
+
+
+    void testCopyDirectoryNoUndo()
+    {
+        const QStringList fileEntries = populateSourceDirectory();
+
+        CopyDirectoryOperation op(nullptr);
+        op.setArguments(QStringList() << m_sourcePath << m_destinationPath << "UNDOOPERATION" << "");
+
+        QVERIFY2(op.performOperation(), op.errorString().toLatin1());
+
+        foreach (const QString &entry, fileEntries)
+            QVERIFY(QFile(m_destinationPath + entry).exists());
+
+        QVERIFY2(op.undoOperation(), op.errorString().toLatin1());
+        // Undo will NOT delete the empty destination directory here
+        foreach (const QString &entry, fileEntries)
+            QVERIFY(QFile(m_destinationPath + entry).exists());
     }
 
     void testCopyDirectoryOverwrite()
@@ -140,35 +197,14 @@ private slots:
         QVERIFY2(op.performOperation(), op.errorString().toLatin1());
     }
 
-    void testPerformingFromCLI()
+    void testCopyDirectoryFromScript()
     {
-        QString installDir = QInstaller::generateTemporaryFileName();
-        QVERIFY(QDir().mkpath(installDir));
-        PackageManagerCore *core = PackageManager::getPackageManagerWithInit
-                (installDir, ":///data/repository");
+        installFromCLI(":///data/repository");
+    }
 
-        core->setValue(scTargetDir, installDir);
-        core->installDefaultComponentsSilently();
-
-        // Matches path in component install script
-        QFileInfo targetInfo(installDir + QDir::toNativeSeparators("/directory"));
-        QMap<QString, QByteArray> targetMap;
-        VerifyInstaller::addToFileMap(QDir(targetInfo.absoluteFilePath()), targetInfo, targetMap);
-
-        QFileInfo destinationInfo(installDir + QDir::toNativeSeparators("/destination/directory"));
-        QMap<QString, QByteArray> destinationMap;
-        VerifyInstaller::addToFileMap(QDir(destinationInfo.absoluteFilePath()), destinationInfo, destinationMap);
-
-        QVERIFY(targetMap == destinationMap);
-
-        core->setPackageManager();
-        core->commitSessionOperations();
-        core->uninstallComponentsSilently(QStringList() << "A");
-        QVERIFY(!destinationInfo.exists());
-
-        QDir dir(installDir);
-        QVERIFY(dir.removeRecursively());
-        core->deleteLater();
+    void testCopyDirectoryFromComponentXML()
+    {
+        installFromCLI(":///data/xmloperationrepository");
     }
 
 private:

@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -32,6 +32,8 @@
 #include "protocol.h"
 #include "repository.h"
 #include "qinstallerglobal.h"
+#include "utils.h"
+#include "commandlineparser.h"
 
 #include <QtCore/QHash>
 #include <QtCore/QObject>
@@ -162,12 +164,16 @@ public:
     Q_INVOKABLE static QString findPath(const QString &name, const QStringList &paths = QStringList());
 
     Q_INVOKABLE void setInstallerBaseBinary(const QString &path);
+    void setOfflineBaseBinary(const QString &path);
+
+    void addResourcesForOfflineGeneration(const QString &rcPath);
 
     // parameter handling
     Q_INVOKABLE bool containsValue(const QString &key) const;
     Q_INVOKABLE bool setValue(const QString &key, const QString &value);
     Q_INVOKABLE QString value(const QString &key, const QString &defaultValue = QString()) const;
     Q_INVOKABLE QStringList values(const QString &key, const QStringList &defaultValue = QStringList()) const;
+    Q_INVOKABLE QString key(const QString &value) const;
 
     QString replaceVariables(const QString &str) const;
     QByteArray replaceVariables(const QByteArray &str) const;
@@ -180,6 +186,9 @@ public:
 
     QString maintenanceToolName() const;
     QString installerBinaryPath() const;
+
+    void setOfflineBinaryName(const QString &name);
+    QString offlineBinaryName() const;
 
     bool testChecksum() const;
     void setTestChecksum(bool test);
@@ -207,6 +216,9 @@ public:
     Q_INVOKABLE QString readFile(const QString &filePath, const QString &codecName) const;
     Q_INVOKABLE QString readConsoleLine(const QString &title = QString(), qint64 maxlen = 0) const;
 
+    Q_INVOKABLE QString toNativeSeparators(const QString &path);
+    Q_INVOKABLE QString fromNativeSeparators(const QString &path);
+
     Q_INVOKABLE QString extendedUrlQueryString(const QString& key, const QString& value, const QString& base = QString()) const;
     Q_INVOKABLE QString generateSqpDefaultUrlQueryString() const;
     Q_INVOKABLE bool updateSqpDefaultUrlQueryString();
@@ -226,7 +238,7 @@ public:
     void appendRootComponent(Component *components);
     void appendUpdaterComponent(Component *components);
 
-    QList<Component *> components(ComponentTypes mask) const;
+    QList<Component *> components(ComponentTypes mask, const QString &regexp = QString()) const;
     Component *componentByName(const QString &identifier) const;
 
     Q_INVOKABLE bool calculateComponentsToInstall() const;
@@ -243,13 +255,15 @@ public:
 
     ComponentModel *defaultComponentModel() const;
     ComponentModel *updaterComponentModel() const;
-    void listInstalledPackages();
-    void listAvailablePackages(const QString &regexp);
+    void listInstalledPackages(const QString &regexp = QString());
+    void listAvailablePackages(const QString &regexp = QString(),
+                               const QHash<QString, QString> &filters = QHash<QString, QString>());
     PackageManagerCore::Status updateComponentsSilently(const QStringList &componentsToUpdate);
     PackageManagerCore::Status installSelectedComponentsSilently(const QStringList& components);
     PackageManagerCore::Status installDefaultComponentsSilently();
     PackageManagerCore::Status uninstallComponentsSilently(const QStringList& components);
     PackageManagerCore::Status removeInstallationSilently();
+    PackageManagerCore::Status createOfflineInstaller(const QStringList &componentsToAdd);
 
     // convenience
     Q_INVOKABLE void setInstaller();
@@ -265,6 +279,12 @@ public:
     Q_INVOKABLE void setPackageManager();
     Q_INVOKABLE bool isPackageManager() const;
 
+    void setOfflineGenerator();
+    Q_INVOKABLE bool isOfflineGenerator() const;
+
+    void setPackageViewer();
+    Q_INVOKABLE bool isPackageViewer() const;
+
     void setUserSetBinaryMarker(qint64 magicMarker);
     Q_INVOKABLE bool isUserSetBinaryMarker() const;
 
@@ -276,8 +296,6 @@ public:
 
     bool isVerbose() const;
     void setVerbose(bool on);
-
-    uint verboseLevel() const;
 
     Q_INVOKABLE bool gainAdminRights();
     Q_INVOKABLE void dropAdminRights();
@@ -324,6 +342,9 @@ public:
     static void parseNameAndVersion(const QString &requirement, QString *name, QString *version);
     static QStringList parseNames(const QStringList &requirements);
     void commitSessionOperations();
+    void clearLicenses();
+    QHash<QString, QMap<QString, QString>> sortedLicenses();
+    void addLicenseItem(const QHash<QString, QVariantMap> &licenses);
 
     Q_INVOKABLE QString targetDirectory() const;
 
@@ -331,6 +352,7 @@ public Q_SLOTS:
     bool runInstaller();
     bool runUninstaller();
     bool runPackageUpdater();
+    bool runOfflineGenerator();
     void interrupt();
     void setCanceled();
     void languageChanged();
@@ -349,6 +371,7 @@ Q_SIGNALS:
     void updaterComponentsAdded(QList<QInstaller::Component*> components);
     void valueChanged(const QString &key, const QString &value);
     void statusChanged(QInstaller::PackageManagerCore::Status);
+    void defaultTranslationsLoadedForLanguage(QLocale::Language);
     void currentPageChanged(int page);
     void finishButtonClicked();
 
@@ -368,6 +391,8 @@ Q_SIGNALS:
     void updateFinished();
     void uninstallationStarted();
     void uninstallationFinished();
+    void offlineGenerationStarted();
+    void offlineGenerationFinished();
     void titleMessageChanged(const QString &title);
 
     void wizardPageInsertionRequested(QWidget *widget, QInstaller::PackageManagerCore::WizardPage page);
@@ -385,6 +410,7 @@ Q_SIGNALS:
     void guiObjectChanged(QObject *gui);
     void unstableComponentFound(const QString &type, const QString &errorMessage, const QString &component);
     void installerBinaryMarkerChanged(qint64 magicMarker);
+    void componentsRecalculated();
 
     void updateTriggerChanged();
 
@@ -409,6 +435,7 @@ private:
 
     bool fetchPackagesTree(const PackagesList &packages, const LocalPackagesHash installedPackages);
     bool componentUninstallableFromCommandLine(const QString &componentName);
+    bool checkComponentsForInstallation(const QStringList &components, QString &errorMessage);
 
 private:
     PackageManagerCorePrivate *const d;
@@ -426,5 +453,6 @@ Q_DECLARE_OPERATORS_FOR_FLAGS(PackageManagerCore::ComponentTypes)
 }
 
 Q_DECLARE_METATYPE(QInstaller::PackageManagerCore*)
+Q_DECLARE_METATYPE(QInstaller::PackageManagerCore::Status)
 
 #endif  // PACKAGEMANAGERCORE_H

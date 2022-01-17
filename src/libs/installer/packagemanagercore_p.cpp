@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -48,6 +48,8 @@
 #include "uninstallercalculator.h"
 #include "componentchecker.h"
 #include "globals.h"
+#include "binarycreator.h"
+#include "loggingutils.h"
 
 #include "selfrestarter.h"
 #include "filedownloaderfactory.h"
@@ -100,8 +102,11 @@ public:
             return;
         qCDebug(QInstaller::lcInstallerInstallLog).noquote() << QString::fromLatin1("%1 %2 operation: %3")
             .arg(state, m_operation->value(QLatin1String("component")).toString(), m_operation->name());
+        QStringList args = m_operation->arguments();
+        if (m_operation->requiresUnreplacedVariables())
+            args = m_operation->packageManager()->replaceVariables(m_operation->arguments());
         qCDebug(QInstaller::lcInstallerInstallLog).noquote() << QString::fromLatin1("\t- arguments: %1")
-            .arg(m_operation->arguments().join(QLatin1String(", ")));
+            .arg(args.join(QLatin1String(", ")));
     }
     ~OperationTracer() {
         if (!m_operation)
@@ -112,18 +117,18 @@ private:
     Operation *m_operation;
 };
 
-static bool runOperation(Operation *operation, PackageManagerCorePrivate::OperationType type)
+static bool runOperation(Operation *operation, Operation::OperationType type)
 {
     OperationTracer tracer(operation);
     switch (type) {
-        case PackageManagerCorePrivate::Backup:
+        case Operation::Backup:
             tracer.trace(QLatin1String("backup"));
             operation->backup();
             return true;
-        case PackageManagerCorePrivate::Perform:
+        case Operation::Perform:
             tracer.trace(QLatin1String("perform"));
             return operation->performOperation();
-        case PackageManagerCorePrivate::Undo:
+        case Operation::Undo:
             tracer.trace(QLatin1String("undo"));
             return operation->undoOperation();
         default:
@@ -206,12 +211,20 @@ static void deferredRename(const QString &oldName, const QString &newName, bool 
 
 PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core)
     : m_updateFinder(nullptr)
-    , m_compressedFinder(nullptr)
     , m_localPackageHub(std::make_shared<LocalPackageHub>())
+    , m_status(PackageManagerCore::Unfinished)
+    , m_needsHardRestart(false)
+    , m_testChecksum(false)
+    , m_launchedAsRoot(AdminAuthorization::hasAdminRights())
+    , m_completeUninstall(false)
+    , m_needToWriteMaintenanceTool(false)
+    , m_dependsOnLocalInstallerBinary(false)
     , m_core(core)
     , m_updates(false)
     , m_repoFetched(false)
     , m_updateSourcesAdded(false)
+    , m_magicBinaryMarker(0) // initialize with pseudo marker
+    , m_magicMarkerSupplement(BinaryContent::Default)
     , m_componentsToInstallCalculated(false)
     , m_componentScriptEngine(nullptr)
     , m_controlScriptEngine(nullptr)
@@ -236,7 +249,6 @@ PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core)
 PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core, qint64 magicInstallerMaker,
         const QList<OperationBlob> &performedOperations)
     : m_updateFinder(nullptr)
-    , m_compressedFinder(nullptr)
     , m_localPackageHub(std::make_shared<LocalPackageHub>())
     , m_status(PackageManagerCore::Unfinished)
     , m_needsHardRestart(false)
@@ -250,6 +262,7 @@ PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core, q
     , m_repoFetched(false)
     , m_updateSourcesAdded(false)
     , m_magicBinaryMarker(magicInstallerMaker)
+    , m_magicMarkerSupplement(BinaryContent::Default)
     , m_componentsToInstallCalculated(false)
     , m_componentScriptEngine(nullptr)
     , m_controlScriptEngine(nullptr)
@@ -294,6 +307,10 @@ PackageManagerCorePrivate::PackageManagerCorePrivate(PackageManagerCore *core, q
             m_core, &PackageManagerCore::uninstallationStarted);
     connect(this, &PackageManagerCorePrivate::uninstallationFinished,
             m_core, &PackageManagerCore::uninstallationFinished);
+    connect(this, &PackageManagerCorePrivate::offlineGenerationStarted,
+            m_core, &PackageManagerCore::offlineGenerationStarted);
+    connect(this, &PackageManagerCorePrivate::offlineGenerationFinished,
+            m_core, &PackageManagerCore::offlineGenerationFinished);
 }
 
 PackageManagerCorePrivate::~PackageManagerCorePrivate()
@@ -349,7 +366,7 @@ bool PackageManagerCorePrivate::isProcessRunning(const QString &name,
 }
 
 /* static */
-bool PackageManagerCorePrivate::performOperationThreaded(Operation *operation, OperationType type)
+bool PackageManagerCorePrivate::performOperationThreaded(Operation *operation, Operation::OperationType type)
 {
     QFutureWatcher<bool> futureWatcher;
     const QFuture<bool> future = QtConcurrent::run(runOperation, operation, type);
@@ -440,6 +457,7 @@ bool PackageManagerCorePrivate::buildComponentTree(QHash<QString, Component*> &c
 
         clearInstallerCalculator();
         if (installerCalculator()->appendComponentsToInstall(components.values()) == false) {
+            setStatus(PackageManagerCore::Failure, installerCalculator()->componentsToInstallError());
             MessageBoxHandler::critical(MessageBoxHandler::currentBestSuitParent(), QLatin1String("Error"),
                 tr("Unresolved dependencies"), installerCalculator()->componentsToInstallError());
             return false;
@@ -447,7 +465,7 @@ bool PackageManagerCorePrivate::buildComponentTree(QHash<QString, Component*> &c
 
         restoreCheckState();
 
-        if (m_core->verboseLevel() > 1) {
+        if (LoggingHandler::instance().verboseLevel() == LoggingHandler::Detailed) {
             foreach (QInstaller::Component *component, components) {
                 const QStringList warnings = ComponentChecker::checkComponent(component);
                 foreach (const QString &warning, warnings)
@@ -591,7 +609,7 @@ UninstallerCalculator *PackageManagerCorePrivate::uninstallerCalculator() const
 void PackageManagerCorePrivate::initialize(const QHash<QString, QString> &params)
 {
     m_coreCheckedHash.clear();
-    m_data = PackageManagerCoreData(params);
+    m_data = PackageManagerCoreData(params, isInstaller());
     m_componentsToInstallCalculated = false;
 
 #ifdef Q_OS_LINUX
@@ -605,6 +623,9 @@ void PackageManagerCorePrivate::initialize(const QHash<QString, QString> &params
 #else
         readMaintenanceConfigFiles(QCoreApplication::applicationDirPath());
 #endif
+        // Maintenancetool might have overwritten the variables
+        // user has given from command line. Reset those variables.
+        m_data.setUserDefinedVariables(params);
     }
     processFilesForDelayedDeletion();
 
@@ -629,6 +650,10 @@ void PackageManagerCorePrivate::initialize(const QHash<QString, QString> &params
     disconnect(this, &PackageManagerCorePrivate::uninstallationStarted,
                ProgressCoordinator::instance(), &ProgressCoordinator::reset);
     connect(this, &PackageManagerCorePrivate::uninstallationStarted,
+            ProgressCoordinator::instance(), &ProgressCoordinator::reset);
+    disconnect(this, &PackageManagerCorePrivate::offlineGenerationStarted,
+               ProgressCoordinator::instance(), &ProgressCoordinator::reset);
+    connect(this, &PackageManagerCorePrivate::offlineGenerationStarted,
             ProgressCoordinator::instance(), &ProgressCoordinator::reset);
 
     if (!isInstaller())
@@ -686,6 +711,16 @@ bool PackageManagerCorePrivate::isUpdater() const
 bool PackageManagerCorePrivate::isPackageManager() const
 {
     return m_magicBinaryMarker == BinaryContent::MagicPackageManagerMarker;
+}
+
+bool PackageManagerCorePrivate::isOfflineGenerator() const
+{
+    return m_magicMarkerSupplement == BinaryContent::OfflineGenerator;
+}
+
+bool PackageManagerCorePrivate::isPackageViewer() const
+{
+    return m_magicMarkerSupplement == BinaryContent::PackageViewer;
 }
 
 bool PackageManagerCorePrivate::statusCanceledOrFailed() const
@@ -746,6 +781,18 @@ QString PackageManagerCorePrivate::maintenanceToolName() const
         filename += QLatin1String(".app/Contents/MacOS/") + filename;
 #elif defined(Q_OS_WIN)
     filename += QLatin1String(".exe");
+#endif
+    return QString::fromLatin1("%1/%2").arg(targetDir()).arg(filename);
+}
+
+QString PackageManagerCorePrivate::offlineBinaryName() const
+{
+    QString filename = m_core->value(scOfflineBinaryName, qApp->applicationName()
+        + QLatin1String("_offline-") + QDate::currentDate().toString(Qt::ISODate));
+#if defined(Q_OS_WIN)
+    const QString suffix = QLatin1String(".exe");
+    if (!filename.endsWith(suffix))
+        filename += suffix;
 #endif
     return QString::fromLatin1("%1/%2").arg(targetDir()).arg(filename);
 }
@@ -876,8 +923,13 @@ void PackageManagerCorePrivate::readMaintenanceConfigFiles(const QString &target
     const QVariantHash v = cfg.value(QLatin1String("Variables")).toHash(); // Do not change to
     // QVariantMap! Breaks reading from existing .ini files, cause the variant types do not match.
     for (QVariantHash::const_iterator it = v.constBegin(); it != v.constEnd(); ++it) {
-        m_data.setValue(it.key(), replacePath(it.value().toString(), QLatin1String(scRelocatable),
-            targetDir));
+        if (m_data.contains(it.key()) && !m_data.value(it.key()).isNull()) {
+            // Exception: StartMenuDir should be permanent after initial installation
+            // and must be read from maintenancetool.ini
+            if (it.key() != scStartMenuDir)
+                continue;
+        }
+        m_data.setValue(it.key(), replacePath(it.value().toString(), QLatin1String(scRelocatable), targetDir));
     }
     QSet<Repository> repos;
     const QVariantList variants = cfg.value(QLatin1String("DefaultRepositories"))
@@ -1209,7 +1261,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
         // create the directory containing the maintenance tool (like a bundle structure on macOS...)
         Operation *op = createOwnedOperation(QLatin1String("Mkdir"));
         op->setArguments(QStringList() << targetAppDirPath);
-        performOperationThreaded(op, Backup);
+        performOperationThreaded(op, Operation::Backup);
         performOperationThreaded(op);
         performedOperations.append(takeOwnedOperation(op));
     }
@@ -1221,14 +1273,14 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
         Operation *op = createOwnedOperation(QLatin1String("Copy"));
         op->setArguments(QStringList() << (sourceAppDirPath + QLatin1String("/../PkgInfo"))
             << (targetAppDirPath + QLatin1String("/../PkgInfo")));
-        performOperationThreaded(op, Backup);
+        performOperationThreaded(op, Operation::Backup);
         performOperationThreaded(op);
 
         // copy Info.plist to target directory
         op = createOwnedOperation(QLatin1String("Copy"));
         op->setArguments(QStringList() << (sourceAppDirPath + QLatin1String("/../Info.plist"))
             << (targetAppDirPath + QLatin1String("/../Info.plist")));
-        performOperationThreaded(op, Backup);
+        performOperationThreaded(op, Operation::Backup);
         performOperationThreaded(op);
 
         // patch the Info.plist after copying it
@@ -1261,7 +1313,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
 
         op = createOwnedOperation(QLatin1String("Mkdir"));
         op->setArguments(QStringList() << (QFileInfo(targetAppDirPath).path() + QLatin1String("/Resources")));
-        performOperationThreaded(op, Backup);
+        performOperationThreaded(op, Operation::Backup);
         performOperationThreaded(op);
 
         // copy application icons if it exists.
@@ -1270,7 +1322,7 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
         op = createOwnedOperation(QLatin1String("Copy"));
         op->setArguments(QStringList() << (sourceAppDirPath + QLatin1String("/../Resources/") + icon)
             << (targetAppDirPath + QLatin1String("/../Resources/") + icon));
-        performOperationThreaded(op, Backup);
+        performOperationThreaded(op, Operation::Backup);
         performOperationThreaded(op);
 
         // finally, copy everything within Frameworks and plugins
@@ -1464,6 +1516,58 @@ void PackageManagerCorePrivate::writeMaintenanceTool(OperationList performedOper
     m_needToWriteMaintenanceTool = false;
 }
 
+void PackageManagerCorePrivate::writeOfflineBaseBinary()
+{
+    qint64 size;
+    QFile input(installerBinaryPath());
+
+    QInstaller::openForRead(&input);
+#ifndef Q_OS_MACOS
+    BinaryLayout layout = BinaryContent::binaryLayout(&input, BinaryContent::MagicCookie);
+    size = layout.endOfExectuable;
+#else
+    // On macOS the data is on a separate file so we can just get the size
+    size = input.size();
+#endif
+
+    const QString offlineBinaryTempName = offlineBinaryName() + QLatin1String(".new");
+    qCDebug(QInstaller::lcInstallerInstallLog) << "Writing offline base binary:" << offlineBinaryTempName;
+    ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(tr("Writing offline base binary."));
+
+    QFile out(generateTemporaryFileName());
+    QInstaller::openForWrite(&out); // throws an exception in case of error
+
+    if (!input.seek(0))
+        throw Error(tr("Failed to seek in file %1: %2").arg(input.fileName(), input.errorString()));
+
+    QInstaller::appendData(&out, &input, size);
+
+    {
+        // Check if we have an existing binary, for any reason
+        QFile dummy(offlineBinaryTempName);
+        if (dummy.exists() && !dummy.remove()) {
+            throw Error(tr("Cannot remove file \"%1\": %2").arg(dummy.fileName(),
+                dummy.errorString()));
+        }
+        // Offline binary name might contain non-existing leading directories
+        const QString offlineBinaryAbsolutePath = QFileInfo(offlineBinaryTempName).absolutePath();
+        QDir dummyDir(offlineBinaryAbsolutePath);
+        if (!dummyDir.exists() && !dummyDir.mkpath(offlineBinaryAbsolutePath)) {
+            throw Error(tr("Cannot create directory \"%1\".").arg(dummyDir.absolutePath()));
+        }
+    }
+
+    if (!out.copy(offlineBinaryTempName)) {
+        throw Error(tr("Cannot write offline binary to \"%1\": %2").arg(offlineBinaryTempName,
+            out.errorString()));
+    }
+
+    if (out.exists() && !out.remove()) {
+        qCWarning(QInstaller::lcInstallerInstallLog) << tr("Cannot remove temporary file \"%1\": %2")
+            .arg(out.fileName(), out.errorString());
+    }
+}
+
 QString PackageManagerCorePrivate::registerPath()
 {
 #ifdef Q_OS_WIN
@@ -1520,7 +1624,7 @@ bool PackageManagerCorePrivate::runInstaller()
         mkdirOp->setValue(QLatin1String("forceremoval"), true);
         mkdirOp->setValue(QLatin1String("uninstall-only"), true);
 
-        performOperationThreaded(mkdirOp, Backup);
+        performOperationThreaded(mkdirOp, Operation::Backup);
         if (!performOperationThreaded(mkdirOp)) {
             // if we cannot create the target dir, we try to activate the admin rights
             adminRightsGained = m_core->gainAdminRights();
@@ -1911,9 +2015,141 @@ bool PackageManagerCorePrivate::runUninstaller()
         m_core->dropAdminRights();
 
     ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(QString::fromLatin1("\n%1").arg(
-        success ? tr("Uninstallation completed successfully.") : tr("Uninstallation aborted.")));
+        success ? tr("Removal completed successfully.") : tr("Removal aborted.")));
 
     emit uninstallationFinished();
+    return success;
+}
+
+bool PackageManagerCorePrivate::runOfflineGenerator()
+{
+    const QString offlineBinaryTempName = offlineBinaryName() + QLatin1String(".new");
+    const QString tempSettingsFilePath = generateTemporaryFileName()
+        + QDir::separator() + QLatin1String("config.xml");
+
+    bool adminRightsGained = false;
+    try {
+        setStatus(PackageManagerCore::Running);
+        emit offlineGenerationStarted(); // Resets also the ProgressCoordninator
+
+        // Never write the maintenance tool when generating offline installer
+        m_needToWriteMaintenanceTool = false;
+
+        // Reserve some progress for the final writing, it should take
+        // only a fraction of time spent in the download part
+        ProgressCoordinator::instance()->addReservePercentagePoints(1);
+
+        const QString target = QDir::cleanPath(targetDir().replace(QLatin1Char('\\'), QLatin1Char('/')));
+        if (target.isEmpty())
+            throw Error(tr("Variable 'TargetDir' not set."));
+
+        // Create target directory for installer to be generated
+        if (!QDir(target).exists()) {
+            if (!QDir().mkpath(target)) {
+                adminRightsGained = m_core->gainAdminRights();
+                // Try again with admin privileges
+                if (!QDir().mkpath(target))
+                    throw Error(tr("Cannot create target directory for installer."));
+            }
+        } else if (QDir(target).exists()) {
+            if (!directoryWritable(targetDir()))
+                adminRightsGained = m_core->gainAdminRights();
+        }
+        setDefaultFilePermissions(target, DefaultFilePermissions::Executable);
+
+        // Show that there was some work
+        ProgressCoordinator::instance()->addManualPercentagePoints(1);
+        ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(tr("Preparing offline generation..."));
+
+        const QList<Component*> componentsToInclude = m_core->orderedComponentsToInstall();
+        qCDebug(QInstaller::lcInstallerInstallLog) << "Included components:" << componentsToInclude.size();
+
+        // Give full part progress size as this is the most time consuming step
+        m_core->downloadNeededArchives(double(1));
+
+        const QString installerBaseReplacement = replaceVariables(m_offlineBaseBinaryUnreplaced);
+        if (!installerBaseReplacement.isEmpty() && QFileInfo(installerBaseReplacement).exists()) {
+            qCDebug(QInstaller::lcInstallerInstallLog) << "Got a replacement installer base binary:"
+                << offlineBinaryTempName;
+
+            if (!QFile::copy(installerBaseReplacement, offlineBinaryTempName)) {
+                qCWarning(QInstaller::lcInstallerInstallLog) << QString::fromLatin1("Cannot copy "
+                    "replacemement binary to temporary location \"%1\" from \"%2\".")
+                    .arg(offlineBinaryTempName, installerBaseReplacement);
+            }
+        } else {
+            writeOfflineBaseBinary();
+        }
+
+        ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(tr("Preparing installer configuration..."));
+
+        // Create copy of internal config file and data, remove repository related elements
+        QInstaller::trimmedCopyConfigData(m_data.settingsFilePath(), tempSettingsFilePath,
+            QStringList() << scRemoteRepositories << scRepositoryCategories);
+
+        // Assemble final installer binary
+        QInstallerTools::BinaryCreatorArgs args;
+        args.target = offlineBinaryName();
+#ifdef Q_OS_MACOS
+        // Target is a disk image on macOS
+        args.target.append(QLatin1String(".dmg"));
+#endif
+        args.templateBinary = offlineBinaryTempName;
+        args.offlineOnly = true;
+        args.configFile = tempSettingsFilePath;
+        args.ftype = QInstallerTools::Include;
+        // Add possible custom resources
+        if (!m_offlineGeneratorResourceCollections.isEmpty())
+            args.resources = m_offlineGeneratorResourceCollections;
+
+        foreach (auto component, componentsToInclude) {
+            args.filteredPackages.append(component->name());
+            args.repositoryDirectories.append(component->localTempPath());
+        }
+        args.repositoryDirectories.removeDuplicates();
+
+        ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(tr("Creating the installer..."));
+
+        QString errorMessage;
+        if (QInstallerTools::createBinary(args, errorMessage) == EXIT_FAILURE) {
+            throw Error(tr("Failed to create offline installer. %1").arg(errorMessage));
+        } else {
+            setStatus(PackageManagerCore::Success);
+        }
+
+        // Fake a possible wrong value to show a full progress
+        const int progress = ProgressCoordinator::instance()->progressInPercentage();
+        // This should be only the reserved one (1) from the beginning
+        if (progress < 100)
+            ProgressCoordinator::instance()->addManualPercentagePoints(100 - progress);
+
+    } catch (const Error &err) {
+        if (m_core->status() != PackageManagerCore::Canceled) {
+            setStatus(PackageManagerCore::Failure);
+            MessageBoxHandler::critical(MessageBoxHandler::currentBestSuitParent(),
+                QLatin1String("installationError"), tr("Error"), err.message());
+        }
+    }
+    QFile tempBinary(offlineBinaryTempName);
+    if (tempBinary.exists() && !tempBinary.remove()) {
+        qCWarning(QInstaller::lcInstallerInstallLog) << tr("Cannot remove temporary file \"%1\": %2")
+            .arg(tempBinary.fileName(), tempBinary.errorString());
+    }
+
+    QDir tempSettingsDir(QFileInfo(tempSettingsFilePath).absolutePath());
+    if (tempSettingsDir.exists() && !tempSettingsDir.removeRecursively()) {
+        qCWarning(QInstaller::lcInstallerInstallLog) << tr("Cannot remove temporary directory \"%1\".")
+            .arg(tempSettingsDir.path());
+    }
+
+    const bool success = m_core->status() == PackageManagerCore::Success;
+    if (adminRightsGained)
+        m_core->dropAdminRights();
+
+    ProgressCoordinator::instance()->emitLabelAndDetailTextChanged(QString::fromLatin1("\n%1").arg(
+        success ? tr("Offline generation completed successfully.") : tr("Offline generation aborted!")));
+
+    emit offlineGenerationFinished();
     return success;
 }
 
@@ -1948,7 +2184,7 @@ void PackageManagerCorePrivate::installComponent(Component *component, double pr
         connectOperationCallMethodRequest(operation);
 
         // allow the operation to backup stuff before performing the operation
-        performOperationThreaded(operation, PackageManagerCorePrivate::Backup);
+        performOperationThreaded(operation, Operation::Backup);
 
         bool ignoreError = false;
         bool ok = performOperationThreaded(operation);
@@ -1983,8 +2219,10 @@ void PackageManagerCorePrivate::installComponent(Component *component, double pr
         if (!ok && !ignoreError)
             throw Error(operation->errorString());
 
-        if ((component->value(scEssential, scFalse) == scTrue) && !m_core->isCommandLineInstance())
+        if (((component->value(scEssential, scFalse) == scTrue) || (component->value(scForcedUpdate, scFalse) == scTrue))
+             && !m_core->isCommandLineInstance()) {
             m_needsHardRestart = true;
+        }
     }
 
     registerPathsForUninstallation(component->pathsForUninstallation(), component->name());
@@ -2002,6 +2240,7 @@ void PackageManagerCorePrivate::installComponent(Component *component, double pr
     m_localPackageHub->addPackage(component->name(),
                                   component->value(scVersion),
                                   component->value(scDisplayName),
+                                  component->value(scTreeName),
                                   component->value(scDescription),
                                   component->dependencies(),
                                   component->autoDependencies(),
@@ -2010,7 +2249,8 @@ void PackageManagerCorePrivate::installComponent(Component *component, double pr
                                   component->value(scUncompressedSize).toULongLong(),
                                   component->value(scInheritVersion),
                                   component->isCheckable(),
-                                  component->isExpandedByDefault());
+                                  component->isExpandedByDefault(),
+                                  component->value(scContentSha1));
     m_localPackageHub->writeToDisk();
 
     component->setInstalled();
@@ -2025,10 +2265,15 @@ bool PackageManagerCorePrivate::runningProcessesFound()
     //Check if there are processes running in the install
     QStringList excludeFiles = m_allowedRunningProcesses;
     excludeFiles.append(maintenanceToolName());
+
+    const QString performModeWarning = m_completeUninstall
+        ? QLatin1String("Unable to remove components.")
+        : QLatin1String("Unable to update components.");
+
     QStringList runningProcesses = runningInstallerProcesses(excludeFiles);
     if (!runningProcesses.isEmpty()) {
-        qCWarning(QInstaller::lcInstallerInstallLog).noquote() << "Unable to update components. Please stop these processes: "
-                 << runningProcesses << " and try again.";
+        qCWarning(QInstaller::lcInstallerInstallLog).noquote().nospace() << performModeWarning
+                 << " Please stop these processes: " << runningProcesses << " and try again.";
         return true;
     }
     return false;
@@ -2037,7 +2282,13 @@ bool PackageManagerCorePrivate::runningProcessesFound()
 void PackageManagerCorePrivate::setComponentSelection(const QString &id, Qt::CheckState state)
 {
     ComponentModel *model = m_core->isUpdater() ? m_core->updaterComponentModel() : m_core->defaultComponentModel();
-    const QModelIndex &idx = model->indexFromComponentName(id);
+    Component *component = m_core->componentByName(id);
+    if (!component) {
+        qCWarning(QInstaller::lcInstallerInstallLog).nospace()
+            << "Unable to set selection for: " << id << ". Component not found.";
+        return;
+    }
+    const QModelIndex &idx = model->indexFromComponentName(component->treeName());
     if (idx.isValid())
         model->setData(idx, state, Qt::CheckStateRole);
 }
@@ -2056,7 +2307,7 @@ void PackageManagerCorePrivate::deleteMaintenanceTool()
         QLatin1String("uninstall.vbs")).absoluteFilePath());
     QFile f(batchfile);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
-        throw Error(tr("Cannot prepare uninstall"));
+        throw Error(tr("Cannot prepare removal"));
 
     QTextStream batch(&f);
     batch << "Set fso = WScript.CreateObject(\"Scripting.FileSystemObject\")\n";
@@ -2087,7 +2338,7 @@ void PackageManagerCorePrivate::deleteMaintenanceTool()
     }
 
     if (!QProcessWrapper::startDetached(QLatin1String("cscript"), arguments, QDir::rootPath()))
-        throw Error(tr("Cannot start uninstall"));
+        throw Error(tr("Cannot start removal"));
 #else
     // every other platform has no problem if we just delete ourselves now
     QFile maintenanceTool(QFileInfo(installerBinaryPath()).absoluteFilePath());
@@ -2176,7 +2427,7 @@ void PackageManagerCorePrivate::runUndoOperations(const OperationList &undoOpera
             qCDebug(QInstaller::lcInstallerInstallLog) << "undo operation=" << undoOperation->name();
 
             bool ignoreError = false;
-            bool ok = performOperationThreaded(undoOperation, PackageManagerCorePrivate::Undo);
+            bool ok = performOperationThreaded(undoOperation, Operation::Undo);
 
             const QString componentName = undoOperation->value(QLatin1String("component")).toString();
 
@@ -2185,11 +2436,11 @@ void PackageManagerCorePrivate::runUndoOperations(const OperationList &undoOpera
                     const QMessageBox::StandardButton button =
                         MessageBoxHandler::warning(MessageBoxHandler::currentBestSuitParent(),
                         QLatin1String("installationErrorWithIgnore"), tr("Installer Error"),
-                        tr("Error during uninstallation process:\n%1").arg(undoOperation->errorString()),
+                        tr("Error during removal process:\n%1").arg(undoOperation->errorString()),
                         QMessageBox::Retry | QMessageBox::Ignore, QMessageBox::Ignore);
 
                     if (button == QMessageBox::Retry)
-                        ok = performOperationThreaded(undoOperation, Undo);
+                        ok = performOperationThreaded(undoOperation, Operation::Undo);
                     else if (button == QMessageBox::Ignore)
                         ignoreError = true;
                 }
@@ -2228,7 +2479,7 @@ PackagesList PackageManagerCorePrivate::remotePackages()
 
     m_updateFinder = new KDUpdater::UpdateFinder;
     m_updateFinder->setAutoDelete(false);
-    m_updateFinder->setPackageSources(m_packageSources);
+    m_updateFinder->setPackageSources(m_packageSources + m_compressedPackageSources);
     m_updateFinder->setLocalPackageHub(m_localPackageHub);
     m_updateFinder->run();
 
@@ -2240,29 +2491,6 @@ PackagesList PackageManagerCorePrivate::remotePackages()
 
     m_updates = true;
     return m_updateFinder->updates();
-}
-
-PackagesList PackageManagerCorePrivate::compressedPackages()
-{
-    if (m_compressedUpdates && m_compressedFinder)
-        return m_compressedFinder->updates();
-    m_compressedUpdates = false;
-    delete m_compressedFinder;
-
-    m_compressedFinder = new KDUpdater::UpdateFinder;
-    m_compressedFinder->setAutoDelete(false);
-    m_compressedFinder->addCompressedPackage(true);
-    m_compressedFinder->setPackageSources(m_compressedPackageSources);
-
-    m_compressedFinder->setLocalPackageHub(m_localPackageHub);
-    m_compressedFinder->run();
-    if (m_compressedFinder->updates().isEmpty()) {
-        setStatus(PackageManagerCore::Failure, tr("Cannot retrieve remote tree %1.")
-            .arg(m_compressedFinder->errorString()));
-        return PackagesList();
-    }
-    m_compressedUpdates = true;
-    return m_compressedFinder->updates();
 }
 
 /*!
@@ -2332,42 +2560,6 @@ bool PackageManagerCorePrivate::fetchMetaInformationFromRepositories(DownloadTyp
     return m_repoFetched;
 }
 
-bool PackageManagerCorePrivate::fetchMetaInformationFromCompressedRepositories()
-{
-    bool compressedRepoFetched = false;
-
-    m_compressedUpdates = false;
-    m_updateSourcesAdded = false;
-
-    try {
-        //Tell MetadataJob that only compressed packages needed to be fetched and not all.
-        //We cannot do this in general fetch meta method as the compressed packages might be
-        //installed after components tree is generated
-        m_metadataJob.addDownloadType(DownloadType::CompressedPackage);
-        m_metadataJob.start();
-        m_metadataJob.waitForFinished();
-    } catch (Error &error) {
-        setStatus(PackageManagerCore::Failure, tr("Cannot retrieve meta information: %1")
-            .arg(error.message()));
-        return compressedRepoFetched;
-    }
-
-    if (m_metadataJob.error() != Job::NoError) {
-        switch (m_metadataJob.error()) {
-            case QInstaller::UserIgnoreError:
-                break;  // we can simply ignore this error, the user knows about it
-            default:
-                //Do not change core status here, we can recover if there is invalid
-                //compressed repository
-                setStatus(m_core->status(), m_metadataJob.errorString());
-                return compressedRepoFetched;
-        }
-    }
-
-    compressedRepoFetched = true;
-    return compressedRepoFetched;
-}
-
 bool PackageManagerCorePrivate::addUpdateResourcesFromRepositories(bool parseChecksum, bool compressedRepository)
 {
     if (!compressedRepository && m_updateSourcesAdded)
@@ -2427,8 +2619,8 @@ bool PackageManagerCorePrivate::addUpdateResourcesFromRepositories(bool parseChe
             if (!checksum.isNull())
                 m_core->setTestChecksum(checksum.toElement().text().toLower() == scTrue);
         }
-        if (compressedRepository)
-            m_compressedPackageSources.insert(PackageSource(QUrl::fromLocalFile(data.directory), 1));
+        if (data.repository.isCompressed())
+            m_compressedPackageSources.insert(PackageSource(QUrl::fromLocalFile(data.directory), 2));
         else
             m_packageSources.insert(PackageSource(QUrl::fromLocalFile(data.directory), 1));
 
@@ -2564,7 +2756,12 @@ bool PackageManagerCorePrivate::calculateComponentsAndRun()
         qCDebug(QInstaller::lcInstallerInstallLog) << "Installation canceled.";
     } else if (componentsOk && acceptLicenseAgreements()) {
         qCDebug(QInstaller::lcInstallerInstallLog).noquote() << htmlToString(htmlOutput);
-        if (!(m_autoConfirmCommand || askUserConfirmCommand())) {
+
+        QString spaceInfo;
+        const bool spaceOk = m_core->checkAvailableSpace(spaceInfo);
+        qCDebug(QInstaller::lcInstallerInstallLog) << spaceInfo;
+
+        if (!spaceOk || !(m_autoConfirmCommand || askUserConfirmCommand())) {
             qCDebug(QInstaller::lcInstallerInstallLog) << "Installation aborted.";
         } else if (m_core->run()) {
             // Write maintenance tool if required
@@ -2581,21 +2778,31 @@ bool PackageManagerCorePrivate::acceptLicenseAgreements() const
     if (isUninstaller())
         return true;
 
-    typedef QHash<QString, QPair<QString, QString> > LicensesHash;
     foreach (Component *component, m_core->orderedComponentsToInstall()) {
         // Package manager or updater, no need to accept again as long as
         // the component is installed.
         if (m_core->isMaintainer() && component->isInstalled())
             continue;
+        m_core->addLicenseItem(component->licenses());
+    }
 
-        LicensesHash hash = component->licenses();
-        for (LicensesHash::iterator it = hash.begin(); it != hash.end(); ++it) {
-            if (m_autoAcceptLicenses || askUserAcceptLicense(it.key(), it.value().second)) {
+    QHash<QString, QMap<QString, QString>> priorityHash = m_core->sortedLicenses();
+    QStringList priorities = priorityHash.keys();
+    priorities.sort();
+    for (int i = priorities.length() - 1; i >= 0; --i) {
+        QString priority = priorities.at(i);
+        QMap<QString, QString> licenses = priorityHash.value(priority);
+
+        QStringList licenseNames = licenses.keys();
+        licenseNames.sort(Qt::CaseInsensitive);
+        for (QString licenseName : licenseNames) {
+            if (m_autoAcceptLicenses
+                    || askUserAcceptLicense(licenseName, licenses.value(licenseName))) {
                 qCDebug(QInstaller::lcInstallerInstallLog) << "License"
-                    << it.key() << "accepted by user.";
+                    << licenseName << "accepted by user.";
             } else {
                 qCDebug(QInstaller::lcInstallerInstallLog) << "License"
-                    << it.key() << "not accepted by user. Aborting.";
+                    << licenseName<< "not accepted by user. Aborting.";
                 return false;
             }
         }
@@ -2627,51 +2834,6 @@ bool PackageManagerCorePrivate::askUserAcceptLicense(const QString &name, const 
     }
 }
 
-void PackageManagerCorePrivate::printPackageInformation(const QString &name, const Package *update)
-{
-    qCDebug(QInstaller::lcPackageName).noquote() << "Id:" << name;
-    qCDebug(QInstaller::lcPackageDisplayname).noquote() << "\tDisplay name:" << update->data(scDisplayName).toString();
-    qCDebug(QInstaller::lcPackageVersion).noquote() << "\tVersion:" << update->data(scVersion).toString();
-    qCDebug(QInstaller::lcPackageDescription).noquote() << "\tDescription:" <<  update->data(scDescription).toString();
-    qCDebug(QInstaller::lcPackageReleasedate).noquote() << "\tRelease date:" << update->data(scReleaseDate).toString();
-    qCDebug(QInstaller::lcPackageDependencies).noquote() << "\tDependencies:" << update->data(scDependencies).toString();
-    qCDebug(QInstaller::lcPackageAutodependon).noquote() << "\tAutodependon:" << update->data(scAutoDependOn).toString();
-    qCDebug(QInstaller::lcPackageVirtual).noquote() << "\tVirtual:" << update->data(scVirtual, false).toString();
-    qCDebug(QInstaller::lcPackageSortingpriority).noquote() << "\tSorting priority:" << update->data(scSortingPriority).toString();
-    qCDebug(QInstaller::lcPackageScript).noquote() << "\tScript:" << update->data(scScript).toString();
-    qCDebug(QInstaller::lcPackageDefault).noquote() << "\tDefault:"<< update->data(scDefault, false).toString();
-    qCDebug(QInstaller::lcPackageEssential).noquote() << "\tEssential:" << update->data(scEssential, false).toString();
-    qCDebug(QInstaller::lcPackageForcedinstallation).noquote() << "\tForced installation:" << update->data(QLatin1String("ForcedInstallation"), false).toString();
-    qCDebug(QInstaller::lcPackageReplaces).noquote() << "\tReplaces:" << update->data(scReplaces).toString();
-    qCDebug(QInstaller::lcPackageDownloadableArchives).noquote() << "\tDownloadable archives:" << update->data(scDownloadableArchives).toString();
-    qCDebug(QInstaller::lcPackageRequiresAdminRights).noquote() << "\tRequires admin rights:" << update->data(scRequiresAdminRights).toString();
-    qCDebug(QInstaller::lcPackageCheckable).noquote() << "\tCheckable:" << update->data(scCheckable).toString();
-    qCDebug(QInstaller::lcPackageLicenses).noquote() << "\tLicenses:" << update->data(QLatin1String("Licenses")).toString();
-    qCDebug(QInstaller::lcPackageCompressedSize).noquote() << "\tCompressed size:" << update->data(QLatin1String("CompressedSize")).toString();
-    qCDebug(QInstaller::lcPackageUncompressedSize).noquote() << "\tUncompressed size:" << update->data(QLatin1String("UncompressedSize")).toString();
-
-    //Check if package already installed
-    LocalPackagesHash installedPackages = this->localInstalledPackages();
-    if (installedPackages.contains(name))
-        qCDebug(QInstaller::lcPackageInstalledVersion).noquote() << "\tInstalled version:" << installedPackages.value(name).version;
-}
-
-void PackageManagerCorePrivate::printLocalPackageInformation(const KDUpdater::LocalPackage package) const
-{
-    qCDebug(QInstaller::lcPackageName).noquote() << "Id:" << package.name;
-    qCDebug(QInstaller::lcPackageDisplayname).noquote() << "\tDisplay name:" << package.title;
-    qCDebug(QInstaller::lcPackageVersion).noquote() << "\tVersion:" << package.version;
-    qCDebug(QInstaller::lcPackageDescription).noquote() << "\tDescription:" <<  package.description;
-    qCDebug(QInstaller::lcPackageDependencies).noquote() << "\tDependencies:" << package.dependencies;
-    qCDebug(QInstaller::lcPackageAutodependon).noquote() << "\tAutodependon:" << package.autoDependencies;
-    qCDebug(QInstaller::lcPackageVirtual).noquote() << "\tVirtual:" << package.virtualComp;
-    qCDebug(QInstaller::lcPackageForcedinstallation).noquote() << "\tForced installation:" << package.forcedInstallation;
-    qCDebug(QInstaller::lcPackageCheckable).noquote() << "\tCheckable:" << package.checkable;
-    qCDebug(QInstaller::lcPackageUncompressedSize).noquote() << "\tUncompressed size:" << package.uncompressedSize;
-    qCDebug(QInstaller::lcPackageInstallDate).noquote() << "\tInstalled:" << package.installDate;
-    qCDebug(QInstaller::lcPackageUpdateDate).noquote() << "\tLast updated:" << package.lastUpdateDate;
-}
-
 bool PackageManagerCorePrivate::askUserConfirmCommand() const
 {
     qCDebug(QInstaller::lcInstallerInstallLog) << "Do you want to continue?";
@@ -2689,6 +2851,21 @@ bool PackageManagerCorePrivate::askUserConfirmCommand() const
             qCDebug(QInstaller::lcInstallerInstallLog) << "Unknown answer:" << input;
         }
     }
+}
+
+bool PackageManagerCorePrivate::packageNeedsUpdate(const LocalPackage &localPackage, const Package *update) const
+{
+    bool updateNeeded = true;
+    const QString contentSha1 = update->data(scContentSha1).toString();
+    if (!contentSha1.isEmpty()) {
+        if (contentSha1 == localPackage.contentSha1)
+            updateNeeded = false;
+    } else {
+        const QString updateVersion = update->data(scVersion).toString();
+        if (KDUpdater::compareVersion(updateVersion, localPackage.version) <= 0)
+            updateNeeded = false;
+    }
+    return updateNeeded;
 }
 
 } // namespace QInstaller

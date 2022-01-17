@@ -39,6 +39,7 @@
 
 #include <QTemporaryDir>
 #include <QtMath>
+#include <QRandomGenerator>
 
 const QStringList metaElements = {QLatin1String("Script"), QLatin1String("Licenses"), QLatin1String("UserInterfaces"), QLatin1String("Translations")};
 
@@ -178,7 +179,7 @@ void MetadataJob::doStart()
                         if (!query.isEmpty()) {
                             url += query + QLatin1Char('&');
                         }
-                        url.append(QString::number(qrand() * qrand()));
+                        url.append(QString::number(QRandomGenerator::global()->generate()));
                         qCDebug(QInstaller::lcInstallerInstallLog) << "Use repo url to download:" << url;
 
                         // also append a random string to avoid proxy caches
@@ -186,10 +187,6 @@ void MetadataJob::doStart()
                         item.insert(TaskRole::UserRole, QVariant::fromValue(repo));
                         item.insert(TaskRole::Authenticator, QVariant::fromValue(authenticator));
                         items.append(item);
-                    }
-                    else {
-                        qCWarning(QInstaller::lcInstallerInstallLog) << "Trying to parse compressed repo as "
-                            "normal repository. Check repository syntax.";
                     }
                 }
             }
@@ -245,7 +242,7 @@ void MetadataJob::startXMLTask(const QList<FileTaskItem> &items)
 void MetadataJob::doCancel()
 {
     reset();
-    emitFinishedWithError(Job::Canceled, tr("Meta data download canceled."));
+    emitFinishedWithError(Job::Canceled, tr("Metadata download canceled."));
 }
 
 void MetadataJob::startUnzipRepositoryTask(const Repository &repo)
@@ -299,8 +296,6 @@ void MetadataJob::unzipRepositoryTaskFinished()
                     m_unzipRepositoryitems.append(item);
                 } else {
                     //Repository is not valid, remove it
-                    Repository repository;
-                    repository.setUrl(QUrl(task->archive()));
                     Settings &s = m_core->settings();
                     QSet<Repository> temporaries = s.temporaryRepositories();
                     foreach (Repository repository, temporaries) {
@@ -554,7 +549,9 @@ void MetadataJob::reset()
 
     try {
         m_xmlTask.cancel();
+        m_xmlTask.waitForFinished();
         m_metadataTask.cancel();
+        m_metadataTask.waitForFinished();
     } catch (...) {}
     m_tempDirDeleter.releaseAndDeleteAll();
     m_metadataResult.clear();
@@ -663,8 +660,11 @@ MetadataJob::Status MetadataJob::parseUpdatesXml(const QList<FileTaskResult> &re
                     metaFound = parsePackageUpdate(c2, packageName, packageVersion, packageHash,
                                                    online, testCheckSum);
 
-                    //If meta element (script, licenses, etc.) is not found, no need to fetch metadata
-                    if (metaFound) {
+                    // If meta element (script, licenses, etc.) is not found, no need to fetch metadata.
+                    // The offline-generator instance is an exception to this - if the Updates.xml contains
+                    // checksum element for the meta-archive, we will fetch it, so that the temporary
+                    // location contents match the remote repository.
+                    if (metaFound || (m_core->isOfflineGenerator() && !packageHash.isEmpty())) {
                         const QString repoUrl = metadata.repository.url().toString();
                         addFileTaskItem(QString::fromLatin1("%1/%2/%3meta.7z").arg(repoUrl, packageName, packageVersion),
                             metadata.directory + QString::fromLatin1("/%1-%2-meta.7z").arg(packageName, packageVersion),

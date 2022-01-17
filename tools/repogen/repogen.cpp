@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -25,32 +25,35 @@
 ** $QT_END_LICENSE$
 **
 **************************************************************************/
-#include "common/repositorygen.h"
 
+#include <repositorygen.h>
 #include <errors.h>
 #include <fileutils.h>
 #include <init.h>
 #include <updater.h>
 #include <settings.h>
 #include <utils.h>
-#include <lib7z_facade.h>
+#include <loggingutils.h>
+#include <archivefactory.h>
+#include <abstractarchive.h>
 
 #include <QDomDocument>
 #include <QtCore/QDir>
 #include <QtCore/QDirIterator>
 #include <QtCore/QFileInfo>
 #include <QTemporaryDir>
+#include <QMetaEnum>
 
 #include <iostream>
 
-#define QUOTE_(x) #x
-#define QUOTE(x) QUOTE_(x)
 
 using namespace QInstaller;
 
 static void printUsage()
 {
     const QString appName = QFileInfo(QCoreApplication::applicationFilePath()).fileName();
+    const QString archiveFormats = ArchiveFactory::supportedTypes().join(QLatin1Char('|'));
+
     std::cout << "Usage: " << appName << " [options] repository-dir" << std::endl;
     std::cout << std::endl;
     std::cout << "Options:" << std::endl;
@@ -72,6 +75,11 @@ static void printUsage()
     std::cout << "                            download phase." << std::endl;
 
     std::cout << "  --component-metadata      Creates one metadata 7z per component. " << std::endl;
+    std::cout << "  --af|--archive-format " << archiveFormats << std::endl;
+    std::cout << "                            Set the format used when packaging new component data archives. If" << std::endl;
+    std::cout << "                            you omit this option the 7z format will be used as a default." << std::endl;
+    std::cout << "  --ac|--compression 0,1,3,5,7,9" << std::endl;
+    std::cout << "                            Sets the compression level used when packaging new data archives." << std::endl;
 
     std::cout << std::endl;
     std::cout << "Example:" << std::endl;
@@ -99,20 +107,22 @@ int main(int argc, char** argv)
 
         QStringList filteredPackages;
         bool updateExistingRepository = false;
-        QStringList packagesDirectories;
-        QStringList repositoryDirectories;
+        QInstallerTools::RepositoryInfo repoInfo;
+        QStringList packagesUpdatedWithSha;
         QInstallerTools::FilterType filterType = QInstallerTools::Exclude;
         bool remove = false;
         bool updateExistingRepositoryWithNewComponents = false;
         bool createUnifiedMetadata = true;
         bool createComponentMetadata = true;
+        QString archiveSuffix = QLatin1String("7z");
+        AbstractArchive::CompressionLevel compression = AbstractArchive::Normal;
 
         //TODO: use a for loop without removing values from args like it is in binarycreator.cpp
         //for (QStringList::const_iterator it = args.begin(); it != args.end(); ++it) {
         while (!args.isEmpty() && args.first().startsWith(QLatin1Char('-'))) {
             if (args.first() == QLatin1String("--verbose") || args.first() == QLatin1String("-v")) {
                 args.removeFirst();
-                setVerbose(true);
+                LoggingHandler::instance().setVerbose(true);
             } else if (args.first() == QLatin1String("--exclude") || args.first() == QLatin1String("-e")) {
                 args.removeFirst();
                 if (!filteredPackages.isEmpty()) {
@@ -167,7 +177,7 @@ int main(int argc, char** argv)
                         "Error: Package directory is empty"));
                 }
 
-                packagesDirectories.append(args.first());
+                repoInfo.packages.append(args.first());
                 args.removeFirst();
             } else if (args.first() == QLatin1String("--repository")) {
                 args.removeFirst();
@@ -180,7 +190,7 @@ int main(int argc, char** argv)
                     return printErrorAndUsageAndExit(QCoreApplication::translate("QInstaller",
                         "Error: Only local filesystem repositories now supported"));
                 }
-                repositoryDirectories.append(args.first());
+                repoInfo.repositoryPackages.append(args.first());
                 args.removeFirst();
             } else if (args.first() == QLatin1String("--ignore-translations")
                 || args.first() == QLatin1String("--ignore-invalid-packages")) {
@@ -194,14 +204,41 @@ int main(int argc, char** argv)
             } else if (args.first() == QLatin1String("--component-metadata")) {
                 createUnifiedMetadata = false;
                 args.removeFirst();
-            }
-            else {
+            } else if (args.first() == QLatin1String("--sha-update") || args.first() == QLatin1String("-s")) {
+                args.removeFirst();
+                packagesUpdatedWithSha = args.first().split(QLatin1Char(','));
+                args.removeFirst();
+            } else if (args.first() == QLatin1String("--af") || args.first() == QLatin1String("--archive-format")) {
+                args.removeFirst();
+                if (args.isEmpty()) {
+                    return printErrorAndUsageAndExit(QCoreApplication::translate("QInstaller",
+                        "Error: Archive format parameter missing argument"));
+                }
+                // TODO: do we need early check for supported formats?
+                archiveSuffix = args.first();
+                args.removeFirst();
+            } else if (args.first() == QLatin1String("--ac") || args.first() == QLatin1String("--compression")) {
+                args.removeFirst();
+                if (args.isEmpty()) {
+                    return printErrorAndUsageAndExit(QCoreApplication::translate("QInstaller",
+                        "Error: Compression parameter missing argument"));
+                }
+                bool ok = false;
+                QMetaEnum levels = QMetaEnum::fromType<AbstractArchive::CompressionLevel>();
+                const int value = args.first().toInt(&ok);
+                if (!ok || !levels.valueToKey(value)) {
+                    return printErrorAndUsageAndExit(QCoreApplication::translate("QInstaller",
+                        "Error: Unknown compression level \"%1\".").arg(value));
+                }
+                compression = static_cast<AbstractArchive::CompressionLevel>(value);
+                args.removeFirst();
+            } else {
                 printUsage();
                 return 1;
             }
         }
 
-        if ((packagesDirectories.isEmpty() && repositoryDirectories.isEmpty()) || (args.count() != 1)) {
+        if ((repoInfo.packages.isEmpty() && repoInfo.repositoryPackages.isEmpty()) || (args.count() != 1)) {
                 printUsage();
                 return 1;
         }
@@ -212,12 +249,12 @@ int main(int argc, char** argv)
                 "Argument -r|--remove and --update|--update-new-components are mutually exclusive!"));
         }
 
-        const QString repositoryDir = QInstallerTools::makePathAbsolute(args.first());
+        repoInfo.repositoryDir = QInstallerTools::makePathAbsolute(args.first());
         if (remove)
-            QInstaller::removeDirectory(repositoryDir);
+            QInstaller::removeDirectory(repoInfo.repositoryDir);
 
         if (updateExistingRepositoryWithNewComponents) {
-            QStringList meta7z = QDir(repositoryDir).entryList(QStringList()
+            QStringList meta7z = QDir(repoInfo.repositoryDir).entryList(QStringList()
                 << QLatin1String("*_meta.7z"), QDir::Files);
             if (!meta7z.isEmpty()) {
                 throw QInstaller::Error(QCoreApplication::translate("QInstaller",
@@ -227,71 +264,28 @@ int main(int argc, char** argv)
             }
         }
 
-        if (!update && QFile::exists(repositoryDir) && !QDir(repositoryDir).entryList(
+        if (!update && QFile::exists(repoInfo.repositoryDir) && !QDir(repoInfo.repositoryDir).entryList(
             QDir::AllEntries | QDir::NoDotAndDotDot).isEmpty()) {
 
             throw QInstaller::Error(QCoreApplication::translate("QInstaller",
-                "Repository target directory \"%1\" already exists.").arg(QDir::toNativeSeparators(repositoryDir)));
+                "Repository target directory \"%1\" already exists.").arg(QDir::toNativeSeparators(repoInfo.repositoryDir)));
         }
 
-        QInstallerTools::PackageInfoVector packages;
-
-        QInstallerTools::PackageInfoVector precompressedPackages = QInstallerTools::createListOfRepositoryPackages(repositoryDirectories,
-            &filteredPackages, filterType);
-        packages.append(precompressedPackages);
-
-        QInstallerTools::PackageInfoVector preparedPackages = QInstallerTools::createListOfPackages(packagesDirectories,
-            &filteredPackages, filterType);
-        packages.append(preparedPackages);
-
-        if (updateExistingRepositoryWithNewComponents) {
-             QInstallerTools::filterNewComponents(repositoryDir, packages);
-             if (packages.isEmpty()) {
-                 std::cout << QString::fromLatin1("Cannot find new components to update \"%1\".")
-                     .arg(repositoryDir) << std::endl;
-                 return EXIT_SUCCESS;
-             }
-        }
-
-        QHash<QString, QString> pathToVersionMapping = QInstallerTools::buildPathToVersionMapping(packages);
-
-        foreach (const QInstallerTools::PackageInfo &package, packages) {
-            const QFileInfo fi(repositoryDir, package.name);
-            if (fi.exists())
-                removeDirectory(fi.absoluteFilePath());
+        QInstallerTools::PackageInfoVector packages = QInstallerTools::collectPackages(repoInfo,
+            &filteredPackages, filterType, updateExistingRepositoryWithNewComponents, packagesUpdatedWithSha);
+        if (packages.isEmpty()) {
+            std::cout << QString::fromLatin1("Cannot find components to update \"%1\".")
+                .arg(repoInfo.repositoryDir) << std::endl;
+            return EXIT_SUCCESS;
         }
 
         QTemporaryDir tmp;
         tmp.setAutoRemove(false);
         tmpMetaDir = tmp.path();
-        QStringList directories;
-        directories.append(packagesDirectories);
-        directories.append(repositoryDirectories);
-        QStringList unite7zFiles;
-        foreach (const QString &repositoryDirectory, repositoryDirectories) {
-            QDirIterator it(repositoryDirectory, QStringList(QLatin1String("*_meta.7z"))
-                            , QDir::Files | QDir::CaseSensitive);
-            while (it.hasNext()) {
-                it.next();
-                unite7zFiles.append(it.fileInfo().absoluteFilePath());
-            }
-        }
-        QInstallerTools::copyComponentData(directories, repositoryDir, &packages);
-        QInstallerTools::copyMetaData(tmpMetaDir, repositoryDir, packages, QLatin1String("{AnyApplication}"),
-            QLatin1String(QUOTE(IFW_REPOSITORY_FORMAT_VERSION)), unite7zFiles);
-        QInstallerTools::compressMetaDirectories(tmpMetaDir, tmpMetaDir, pathToVersionMapping,
-                                                 createComponentMetadata, createUnifiedMetadata);
+        QInstallerTools::createRepository(repoInfo, &packages, tmpMetaDir,
+            createComponentMetadata, createUnifiedMetadata, archiveSuffix, compression);
 
-        QDirIterator it(repositoryDir, QStringList(QLatin1String("Updates*.xml"))
-                        << QLatin1String("*_meta.7z"), QDir::Files | QDir::CaseSensitive);
-        while (it.hasNext()) {
-            it.next();
-            QFile::remove(it.fileInfo().absoluteFilePath());
-        }
-        QInstaller::moveDirectoryContents(tmpMetaDir, repositoryDir);
         exitCode = EXIT_SUCCESS;
-    } catch (const Lib7z::SevenZipException &e) {
-        std::cerr << "Caught 7zip exception: " << e.message() << std::endl;
     } catch (const QInstaller::Error &e) {
         std::cerr << "Caught exception: " << e.message() << std::endl;
     } catch (...) {

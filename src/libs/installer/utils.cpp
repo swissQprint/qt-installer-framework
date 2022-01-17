@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -50,24 +50,6 @@
 #include <signal.h>
 #include <time.h>
 #endif
-
-/*!
-    \inmodule QtInstallerFramework
-    \class QInstaller::PlainVerboseWriterOutput
-    \internal
-*/
-
-/*!
-    \inmodule QtInstallerFramework
-    \class QInstaller::VerboseWriterOutput
-    \internal
-*/
-
-/*!
-    \inmodule QtInstallerFramework
-    \class QInstaller::VerboseWriter
-    \internal
-*/
 
 /*!
     \internal
@@ -149,37 +131,6 @@ QStringList QInstaller::localeCandidates(const QString &locale_)
         locale.truncate(r);
     }
     return candidates;
-}
-
-
-static uint verbLevel = 0;
-
-/*!
-    Sets to verbose output if \a v is set to \c true. Calling this multiple
-    times increases or decreases the verbosity level accordingly.
-*/
-void QInstaller::setVerbose(bool v)
-{
-    if (v)
-        verbLevel++;
-    else if (verbLevel > 0)
-        verbLevel--;
-}
-
-/*!
-    Returns \c true if the installer is set to verbose output.
-*/
-bool QInstaller::isVerbose()
-{
-    return verbLevel > 0 ? true : false;
-}
-
-/*!
-    Returns the current verbosity level.
-*/
-uint QInstaller::verboseLevel()
-{
-    return verbLevel;
 }
 
 /*!
@@ -280,84 +231,6 @@ QString QInstaller::replaceWindowsEnvironmentVariables(const QString &str)
     }
     res += str.mid(pos);
     return res;
-}
-
-QInstaller::VerboseWriter::VerboseWriter()
-{
-    preFileBuffer.open(QIODevice::ReadWrite);
-    stream.setDevice(&preFileBuffer);
-    currentDateTimeAsString = QDateTime::currentDateTime().toString();
-}
-
-QInstaller::VerboseWriter::~VerboseWriter()
-{
-    if (preFileBuffer.isOpen()) {
-        PlainVerboseWriterOutput output;
-        (void)flush(&output);
-    }
-}
-
-bool QInstaller::VerboseWriter::flush(VerboseWriterOutput *output)
-{
-    stream.flush();
-    if (logFileName.isEmpty()) // binarycreator
-        return true;
-    if (!preFileBuffer.isOpen())
-        return true;
-    //if the installer installed nothing - there is no target directory - where the logfile can be saved
-    if (!QFileInfo(logFileName).absoluteDir().exists())
-        return true;
-
-    QString logInfo;
-    logInfo += QLatin1String("************************************* Invoked: ");
-    logInfo += currentDateTimeAsString;
-    logInfo += QLatin1String("\n");
-
-    QBuffer buffer;
-    buffer.open(QIODevice::WriteOnly);
-    buffer.write(logInfo.toLocal8Bit());
-    buffer.write(preFileBuffer.data());
-    buffer.close();
-
-    if (output->write(logFileName, QIODevice::ReadWrite | QIODevice::Append | QIODevice::Text, buffer.data())) {
-        preFileBuffer.close();
-        stream.setDevice(nullptr);
-        return true;
-    }
-    return false;
-}
-
-void QInstaller::VerboseWriter::setFileName(const QString &fileName)
-{
-    logFileName = fileName;
-}
-
-
-Q_GLOBAL_STATIC(QInstaller::VerboseWriter, verboseWriter)
-
-QInstaller::VerboseWriter *QInstaller::VerboseWriter::instance()
-{
-    return verboseWriter();
-}
-
-void QInstaller::VerboseWriter::appendLine(const QString &msg)
-{
-    stream << msg << endl;
-}
-
-QInstaller::VerboseWriterOutput::~VerboseWriterOutput()
-{
-}
-
-bool QInstaller::PlainVerboseWriterOutput::write(const QString &fileName, QIODevice::OpenMode openMode, const QByteArray &data)
-{
-    QFile output(fileName);
-    if (output.open(openMode)) {
-        output.write(data);
-        setDefaultFilePermissions(&output, DefaultFilePermissions::NonExecutable);
-        return true;
-    }
-    return false;
 }
 
 #ifdef Q_OS_WIN
@@ -478,12 +351,12 @@ static QString qt_create_commandline(const QString &program, const QStringList &
             // as escaping the quote -- rather put the \ behind the quote: e.g.
             // rather use "foo"\ than "foo\"
             QString endQuote(QLatin1Char('\"'));
-            int i = tmp.length();
-            while (i > 0 && tmp.at(i - 1) == QLatin1Char('\\')) {
-                --i;
+            int j = tmp.length();
+            while (j > 0 && tmp.at(j - 1) == QLatin1Char('\\')) {
+                --j;
                 endQuote += QLatin1Char('\\');
             }
-            args += QLatin1String(" \"") + tmp.left(i) + endQuote;
+            args += QLatin1String(" \"") + tmp.left(j) + endQuote;
         } else {
             args += QLatin1Char(' ') + tmp;
         }

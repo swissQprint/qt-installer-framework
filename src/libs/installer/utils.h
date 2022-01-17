@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -45,6 +45,7 @@ class QIODevice;
 QT_END_NAMESPACE
 
 namespace QInstaller {
+
     void INSTALLER_EXPORT uiDetachedWait(int ms);
     bool INSTALLER_EXPORT startDetached(const QString &program, const QStringList &arguments,
         const QString &workingDirectory, qint64 *pid = 0);
@@ -63,49 +64,9 @@ namespace QInstaller {
 
     QStringList INSTALLER_EXPORT localeCandidates(const QString &locale);
 
-    void INSTALLER_EXPORT setVerbose(bool v);
-    bool INSTALLER_EXPORT isVerbose();
-    uint INSTALLER_EXPORT verboseLevel();
-
     QStringList INSTALLER_EXPORT checkMutualOptions(CommandLineParser &parser, const QStringList &options);
 
     INSTALLER_EXPORT std::ostream& operator<<(std::ostream &os, const QString &string);
-
-    class INSTALLER_EXPORT VerboseWriterOutput
-    {
-    public:
-        virtual bool write(const QString &fileName, QIODevice::OpenMode openMode, const QByteArray &data) = 0;
-
-    protected:
-        ~VerboseWriterOutput();
-    };
-
-    class INSTALLER_EXPORT PlainVerboseWriterOutput : public VerboseWriterOutput
-    {
-    public:
-        virtual bool write(const QString &fileName, QIODevice::OpenMode openMode, const QByteArray &data);
-    };
-
-    class INSTALLER_EXPORT VerboseWriter
-    {
-    public:
-        VerboseWriter();
-        ~VerboseWriter();
-
-        static VerboseWriter *instance();
-
-        bool flush(VerboseWriterOutput *output);
-
-        void appendLine(const QString &msg);
-        void setFileName(const QString &fileName);
-
-    private:
-        QTextStream stream;
-        QBuffer preFileBuffer;
-        QString logFileName;
-        QString currentDateTimeAsString;
-    };
-
 }
 
 #endif // QINSTALLER_UTILS_H

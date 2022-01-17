@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -31,6 +31,7 @@
 #include "errors.h"
 #include "scriptengine_p.h"
 #include "systeminfo.h"
+#include "loggingutils.h"
 
 #include <QMetaEnum>
 #include <QQmlEngine>
@@ -74,10 +75,10 @@ namespace QInstaller {
     \internal
 */
 
-QJSValue InstallerProxy::components() const
+QJSValue InstallerProxy::components(const QString &regexp) const
 {
     if (m_core) {
-        const QList<Component*> all = m_core->components(PackageManagerCore::ComponentType::All);
+        const QList<Component*> all = m_core->components(PackageManagerCore::ComponentType::All, regexp);
         QJSValue scriptComponentsObject = m_engine->newArray(all.count());
         for (int i = 0; i < all.count(); ++i) {
             Component *const component = all.at(i);
@@ -344,7 +345,7 @@ QString QFileDialogProxy::getExistingFileOrDirectory(const QString &caption,
                         .arg(identifier, selectedDirectoryOrFile);
             selectedDirectoryOrFile = QString();
         }
-    } else {
+    } else if (!LoggingHandler::instance().outputRedirected()) {
         qDebug().nospace().noquote() << identifier << ": " << caption << ": ";
         QTextStream stream(stdin);
         stream.readLineInto(&selectedDirectoryOrFile);
@@ -358,6 +359,12 @@ QString QFileDialogProxy::getExistingFileOrDirectory(const QString &caption,
                         .arg(selectedDirectoryOrFile);
             selectedDirectoryOrFile = QString();
         }
+    } else {
+        qCDebug(QInstaller::lcInstallerInstallLog).nospace()
+            << "No answer available for "<< identifier << ": " << caption;
+
+        throw Error(tr("User input is required but the output "
+            "device is not associated with a terminal."));
     }
     if (!errorString.isEmpty())
         qCWarning(QInstaller::lcInstallerInstallLog).nospace() << errorString;
@@ -372,6 +379,7 @@ ScriptEngine::ScriptEngine(PackageManagerCore *core) :
     QObject(core),
     m_guiProxy(new GuiProxy(this, this))
 {
+    m_engine.installExtensions(QJSEngine::TranslationExtension);
     QJSValue global = m_engine.globalObject();
     global.setProperty(QLatin1String("console"), m_engine.newQObject(new ConsoleProxy));
     global.setProperty(QLatin1String("QFileDialog"), m_engine.newQObject(new QFileDialogProxy(core)));
@@ -379,12 +387,6 @@ ScriptEngine::ScriptEngine(PackageManagerCore *core) :
     global.setProperty(QLatin1String("InstallerProxy"), proxy);
     global.setProperty(QLatin1String("print"), m_engine.newQObject(new ConsoleProxy)
         .property(QLatin1String("log")));
-#if QT_VERSION < 0x050400
-    global.setProperty(QLatin1String("qsTr"), m_engine.newQObject(new QCoreApplicationProxy)
-        .property(QStringLiteral("qsTr")));
-#else
-    m_engine.installTranslatorFunctions();
-#endif
     global.setProperty(QLatin1String("systemInfo"), m_engine.newQObject(new SystemInfo));
 
     global.setProperty(QLatin1String("QInstaller"), generateQInstallerObject());
@@ -511,7 +513,7 @@ QJSValue ScriptEngine::loadInContext(const QString &context, const QString &file
     // replacements of %1, %2 or %3 inside the javascript code.
     const QString scriptContent = QLatin1String("(function() {")
         + scriptInjection + QString::fromUtf8(file.readAll())
-        + QString::fromLatin1(";"
+        + QString::fromLatin1("\n"
         "    if (typeof %1 != \"undefined\")"
         "        return new %1;"
         "    else"

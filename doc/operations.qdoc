@@ -26,15 +26,14 @@
 ****************************************************************************/
 
 /*!
-    \contentspage{index.html}{Qt Installer Framework}
     \previouspage scripting.html
     \page operations.html
     \nextpage ifw-tools.html
 
     \title Operations
 
-    The operations are prepared by component and controller scripts and performed by the
-    installer.
+    The operations are prepared by component and controller scripts or component.xml
+    and performed by the installer.
     \note Operations are performed threaded.
 
     Internally, each operation has a \e DO step that contains instructions for
@@ -43,7 +42,19 @@
 
     \section1 Summary of Operations
 
-    The following table summarizes the available operations and their syntax.
+    The following table summarizes the available operations and their syntax in component
+    and controller scripts. Syntax for operations in component.xml is:
+    \code
+    <Operations>
+      <Operation name="operation">
+        <Argument>argument1</Argument>
+        <Argument>argument2</Argument>
+      </Operation>
+    </Operations>
+    \endcode
+    \note The argument order in component.xml is the same as in scripting, except for
+    \c Extract operation where the argument \c archive is optional, and must be defined
+    as the last argument.
 
     \table
         \header
@@ -62,6 +73,10 @@
             \li SimpleMoveFile
             \li "SimpleMoveFile" \c source \c target
             \li Moves a file from \c source to \c target.
+
+            \note Files will be moved from \c target to \c source during uninstallation.
+            If you want to move the files persistently, you can overwrite the \e UNDO
+            by passing \e UNDOOPERATION and \e "", to the end of the argument list.
         \row
             \li Delete
             \li "Delete" \c filename
@@ -78,6 +93,9 @@
             \li CopyDirectory
             \li "CopyDirectory" \c sourcePath \c targetPath
             \li Copies a directory from \c sourcePath to \c targetPath.
+            \note Directories will be reset during uninstallation. If you want to copy the
+                directory persistently, you can overwrite the \e UNDO by passing \e UNDOOPERATION
+                and \e "", to the end of the argument list.
         \row
             \li AppendFile
             \li "AppendFile" \c filename \c text
@@ -132,6 +150,11 @@
                 On Windows, this creates a .lnk file which can have
                 \c arguments. Furthermore, \c filename can be
                 an HTTP or FTP URL in which case a URL shortcut is created.
+                \note If the \c @AllUsersStartMenuProgramsPath@ is used for
+                placing the shortcut, then due to a problem on Windows, it will
+                drop any arguments to the target and any description set. In
+                this case, you should place the shortcut elsewhere and copy it
+                to the location desired.
                 The operation is currently not implemented on other platforms.
         \row
             \li CreateDesktopEntry
@@ -143,7 +166,8 @@
                 If \c filename is absolute, the desktop entry is stored there.
                 Otherwise, it is stored in the location specified in
                 \c{$XDG_DATA_HOME/applications}, including the default path,
-                as defined by freedesktop.org.
+                as defined by freedesktop.org. For system-wide installations,
+                it is stored in \c {/usr/local/share/applications} instead.
 
                 The key-value pairs are written to the file.
 
@@ -153,8 +177,8 @@
             \li "InstallIcons" \c directory \c [Vendorprefix]
             \li Installs the contents of \c directory into a location, as
                 specified by freedesktop.org. That is, into
-                \c {$XDG_DATA_HOME/icons} or
-                \c {$HOME/.local/share/icons}. The files are removed from their initial
+                \c {$XDG_DATA_HOME/icons}, \c {$HOME/.local/share/icons} or
+                \c {/usr/local/share/icons}. The files are removed from their initial
                 location. Make sure to add this operation after the operation
                 that extracts the files from the archive.
                 If you provide a \c Vendorprefix it replaces all characters up to the
@@ -163,6 +187,8 @@
             \li Extract
             \li "Extract" \c archive \c targetdirectory
             \li Extracts \c archive to \c targetdirectory.
+                Extract operations are called before other operations. Note that in component.xml
+                argument \c archive is optional and thus must be defined as the last parameter.
 
         \row
             \li GlobalConfig
@@ -180,6 +206,10 @@
                 (using \c QSettings::NativeFormat, which might be the Windows
                 registry) or by \c application and \c company name. Set \c scope
                 to "SystemScope" to create an entry in the system scope.
+
+                \note GlobalConfig will be reset during uninstallation. If you want to make the
+                config persistent, you can overwrite the \e UNDO by passing \e UNDOOPERATION and
+                \e "", to the end of the argument list.
 
                 \note The operation is using QSettings to store the key value pair. QSettings
                 always treats backslash as a special character and provides no API for reading
@@ -206,6 +236,9 @@
                 \c command. Optionally, you can specify \c description,
                 \c contentType, and \c icon. This is currently only supported on
                 Windows.
+                \note File type will be unregistered during uninstallation. If you want keep the
+                type registered, you can overwrite the \e UNDO by passing \e UNDOOPERATION
+                and \e "", to the end of the argument list.
         \row
             \li ConsumeOutput
             \li "ConsumeOutput" \c installerKeyName \c executablePath \c processArguments
@@ -224,6 +257,9 @@
             \li Creates a local repository in the directory specified by
                 \c repoPath. For offline installers, stores binary data in the
                 directory specified by \c binaryPath.
+                \note The repository will be deleted during uninstallation. If you want keep
+                the repository, you can overwrite the \e UNDO by passing \e UNDOOPERATION
+                and \e "", to the end of the argument list.
         \row
             \li FakeStopProcessForUpdate
             \li "FakeStopProcessForUpdate" \c processlist

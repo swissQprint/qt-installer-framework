@@ -68,6 +68,18 @@ using namespace KDUpdater;
             to get the human-readable description of the error that occurred.
 */
 
+/*!
+    \enum UpdateOperation::OperationType
+    This enum code specifies the operation type.
+
+    \value  Backup
+            Backup operation.
+    \value  Perform
+            Perform operation.
+    \value  Undo
+            Undo operation.
+*/
+
 /*
     \internal
     Returns a filename for a temporary file based on \a templateName.
@@ -89,6 +101,7 @@ static QString backupFileName(const QString &templateName)
 UpdateOperation::UpdateOperation(QInstaller::PackageManagerCore *core)
     : m_error(0)
     , m_core(core)
+    , m_requiresUnreplacedVariables(false)
 {
     // Store the value for compatibility reasons.
     m_values[QLatin1String("installer")] = QVariant::fromValue(core);
@@ -190,7 +203,7 @@ QStringList UpdateOperation::arguments() const
 bool UpdateOperation::checkArgumentCount(int minArgCount, int maxArgCount,
                                          const QString &argDescription)
 {
-    const int argCount = arguments().count();
+    const int argCount = parsePerformOperationArguments().count();
     if (argCount < minArgCount || argCount > maxArgCount) {
         setError(InvalidArguments);
         QString countRange;
@@ -226,9 +239,51 @@ bool UpdateOperation::checkArgumentCount(int argCount)
     return checkArgumentCount(argCount, argCount);
 }
 
+/*!
+    Returns operation argument list without
+    \c UNDOOOPERATION arguments.
+*/
+QStringList UpdateOperation::parsePerformOperationArguments()
+{
+    QStringList args;
+    int index = arguments().indexOf(QLatin1String("UNDOOPERATION"));
+    args = arguments().mid(0, index);
+    return args;
+}
+
+/*!
+    Returns undo operation argument list. If the installation is
+    cancelled or failed, returns an empty list so that full undo
+    operation can be performed.
+*/
+QStringList UpdateOperation::parseUndoOperationArguments()
+{
+    //Install has failed, allow a normal undo
+    if (m_core && (m_core->status() == QInstaller::PackageManagerCore::Canceled
+              || m_core->status() == QInstaller::PackageManagerCore::Failure)) {
+        return QStringList();
+    }
+    int index = arguments().indexOf(QLatin1String("UNDOOPERATION"));
+    QStringList args;
+    if ((index != -1) && (arguments().length() > index + 1)) {
+        args = arguments().mid(index + 1);
+    }
+    return args;
+}
+
+/*!
+   Sets the requirement for unresolved variables to \a isRequired.
+
+   \sa requiresUnreplacedVariables()
+*/
+void UpdateOperation::setRequiresUnreplacedVariables(bool isRequired)
+{
+    m_requiresUnreplacedVariables = isRequired;
+}
+
 struct StartsWith
 {
-    StartsWith(const QString &searchTerm)
+    explicit StartsWith(const QString &searchTerm)
         : m_searchTerm(searchTerm) {}
 
     bool operator()(const QString &searchString)
@@ -319,6 +374,15 @@ void UpdateOperation::clear()
 QStringList UpdateOperation::filesForDelayedDeletion() const
 {
     return m_delayedDeletionFiles;
+}
+
+/*!
+    Returns true if installer saves the variables unresolved.
+    The variables are resolved right before operation is performed.
+*/
+bool UpdateOperation::requiresUnreplacedVariables() const
+{
+    return m_requiresUnreplacedVariables;
 }
 
 /*!
@@ -505,6 +569,10 @@ bool UpdateOperation::fromXml(const QDomDocument &doc)
                 }
                 var = QVariant::fromValue(list);
             }
+        } else if (t == QVariant::String) {
+              const QString str = QInstaller::replacePath(value,
+                        QLatin1String(QInstaller::scRelocatable), target);
+              var = QVariant::fromValue(str);
         }
 
         m_values[name] = var;

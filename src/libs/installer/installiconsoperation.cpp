@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -30,6 +30,9 @@
 #include "fileutils.h"
 #include "packagemanagercore.h"
 #include "globals.h"
+#include "adminauthorization.h"
+#include "remoteclient.h"
+#include "errors.h"
 
 #include <QDebug>
 #include <QDir>
@@ -52,7 +55,10 @@ QString InstallIconsOperation::targetDirectory()
     QStringList XDG_DATA_HOME = QString::fromLocal8Bit(qgetenv("XDG_DATA_HOME"))
                                                         .split(QLatin1Char(':'),
         QString::SkipEmptyParts);
-    XDG_DATA_HOME.push_back(QDir::home().absoluteFilePath(QLatin1String(".local/share"))); // default path
+    XDG_DATA_HOME.push_back(QDir::home().absoluteFilePath(QLatin1String(".local/share"))); // default user-specific path
+
+    if (AdminAuthorization::hasAdminRights() || RemoteClient::instance().isActive())
+        XDG_DATA_HOME.push_front(QLatin1String("/usr/local/share")); // default system-wide path
 
     QString directory;
     const QStringList& directories = XDG_DATA_HOME;
@@ -129,8 +135,8 @@ bool InstallIconsOperation::performOperation()
         if (status == PackageManagerCore::Canceled || status == PackageManagerCore::Failure)
             return true;
 
-        const QString &source = it.next();
-        QString target = targetDir.absoluteFilePath(sourceDir.relativeFilePath(source));
+        const QString &source2 = it.next();
+        QString target = targetDir.absoluteFilePath(sourceDir.relativeFilePath(source2));
 
         emit outputTextChanged(target);
 
@@ -153,7 +159,16 @@ bool InstallIconsOperation::performOperation()
 
             if (QFile(target).exists()) {
                 // first backup...
-                const QString backup = generateTemporaryFileName(target);
+                QString backup;
+                try {
+                    backup = generateTemporaryFileName(target);
+                } catch (const QInstaller::Error &e) {
+                    setError(UserDefinedError);
+                    setErrorString(tr("Cannot prepare to backup file \"%1\": %2")
+                        .arg(QDir::toNativeSeparators(target), e.message()));
+                    undoOperation();
+                    return false;
+                }
                 QFile bf(target);
                 if (!bf.copy(backup)) {
                     setError(UserDefinedError);
@@ -180,7 +195,7 @@ bool InstallIconsOperation::performOperation()
             }
 
             // copy the file to its new location
-            QFile cf(source);
+            QFile cf(source2);
             if (!cf.copy(target)) {
                 setError(UserDefinedError);
                 setErrorString(tr("Failed to copy file \"%1\": %2").arg(
@@ -188,8 +203,8 @@ bool InstallIconsOperation::performOperation()
                 undoOperation();
                 return false;
             }
-            deleteFileNowOrLater(source);
-            files.push_back(source);
+            deleteFileNowOrLater(source2);
+            files.push_back(source2);
             files.push_back(target);
             setValue(QLatin1String("files"), files);
         } else if (fi.isDir() && !QDir(target).exists()) {

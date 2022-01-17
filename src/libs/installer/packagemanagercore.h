@@ -56,6 +56,7 @@ class INSTALLER_EXPORT PackageManagerCore : public QObject
 
     Q_ENUMS(Status WizardPage)
     Q_PROPERTY(int status READ status NOTIFY statusChanged)
+    Q_PROPERTY(QString updateTrigger READ updateTrigger WRITE setUpdateTrigger NOTIFY updateTriggerChanged)
 
 public:
     PackageManagerCore();
@@ -206,9 +207,12 @@ public:
     Q_INVOKABLE QString readFile(const QString &filePath, const QString &codecName) const;
     Q_INVOKABLE QString readConsoleLine(const QString &title = QString(), qint64 maxlen = 0) const;
 
-    Q_INVOKABLE QString extendedUrlQueryString(const QString& key, const QString& value) const;
+    Q_INVOKABLE QString extendedUrlQueryString(const QString& key, const QString& value, const QString& base = QString()) const;
     Q_INVOKABLE QString generateSqpDefaultUrlQueryString() const;
     Q_INVOKABLE bool updateSqpDefaultUrlQueryString();
+    Q_INVOKABLE void setUpdateTrigger(const QString& trigger);
+    Q_INVOKABLE QString updateTrigger() const;
+    Q_INVOKABLE bool hasUpdateTrigger() const;
 
     bool checkTargetDir(const QString &targetDirectory);
     QString targetDirWarning(const QString &targetDirectory) const;
@@ -382,6 +386,8 @@ Q_SIGNALS:
     void unstableComponentFound(const QString &type, const QString &errorMessage, const QString &component);
     void installerBinaryMarkerChanged(qint64 magicMarker);
 
+    void updateTriggerChanged();
+
 private:
     struct Data {
         Package *package;
@@ -408,6 +414,7 @@ private:
     PackageManagerCorePrivate *const d;
     friend class PackageManagerCorePrivate;
     QHash<QString, QString> m_fileDialogAutomaticAnswers;
+    QString m_updateTrigger;
 
 private:
     // remove once we deprecate isSelected, setSelected etc...

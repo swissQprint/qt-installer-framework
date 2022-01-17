@@ -1,7 +1,7 @@
 from conans import ConanFile, python_requires, VisualStudioBuildEnvironment, tools
 import os, json, shutil
 
-build_tools = "sqpBuildTools/[~0.8]@tools/release"
+build_tools = "sqpBuildTools/[~2.2]@tools/release"
 sqp = python_requires(build_tools)
 
 def read_git_information():
@@ -28,10 +28,11 @@ class SQPQtIFWConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     build_requires = (
         (build_tools),
-        ("QtStatic/5.15.2@3rdparty/release")
+        ("QtStatic/5.15.1@3rdparty/release")
     )
     exports_sources = "src/*", "installerfw.pri", "installerfw.pro", "tools/*"
     exports = "gitinfo.json"
+    generators = ("cmake_paths", "virtualrunenv")
     
     def get_namespace(self):
         return "{0}/{1}".format(self.user,self.channel)

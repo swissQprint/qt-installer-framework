@@ -170,11 +170,19 @@ void MetadataJob::doStart()
 
                     if (!repo.isCompressed()) {
                         QString url = repo.url().toString() + QLatin1String("/Updates.xml?");
-                        if (!m_core->value(scUrlQueryString).isEmpty())
-                            url += m_core->value(scUrlQueryString) + QLatin1Char('&');
+                        auto query = m_core->value(scUrlQueryString);
+                        if (m_core->hasUpdateTrigger()) {
+                            const auto trigger = m_core->updateTrigger();
+                            query = m_core->extendedUrlQueryString(QLatin1String("trigger"), trigger, query);
+                        }
+                        if (!query.isEmpty()) {
+                            url += query + QLatin1Char('&');
+                        }
+                        url.append(QString::number(qrand() * qrand()));
+                        qCDebug(QInstaller::lcInstallerInstallLog) << "Use repo url to download:" << url;
 
                         // also append a random string to avoid proxy caches
-                        FileTaskItem item(url.append(QString::number(qrand() * qrand())));
+                        FileTaskItem item(url);
                         item.insert(TaskRole::UserRole, QVariant::fromValue(repo));
                         item.insert(TaskRole::Authenticator, QVariant::fromValue(authenticator));
                         items.append(item);

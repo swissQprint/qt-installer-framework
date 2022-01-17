@@ -204,6 +204,7 @@ static const QLatin1String scDeprecatedCheckUpdates("checkupdates");
 // swissQprint options
 static const QLatin1String scSqpPlotMachineTokenLong("sqp-plot-machine-token");
 static const QLatin1String scSqpPlotMachineTokenShort("sqp-pmt");
+static const QLatin1String scSqpUpdateTriggerLong("sqp-update-trigger");
 
 // Options supposed to be used without graphical interface
 static const QStringList scCommandLineInterfaceOptions = {

@@ -295,6 +295,23 @@ public:
         if (m_parser.isSet(CommandLineOptions::scConfirmCommandLong))
             m_core->setAutoConfirmCommand();
 
+        // swissQprint options available only at runtime
+        if (m_parser.isSet(CommandLineOptions::scSqpUpdateTriggerLong)) {
+            // https://confluence.swissqprint.inhouse:8444/x/uICAAQ
+            static const QStringList availableTriggers = {
+                QStringLiteral("auto"),
+                QStringLiteral("manual")
+            };
+            const auto trigger = m_parser.value(CommandLineOptions::scSqpUpdateTriggerLong);
+            qCDebug(QInstaller::lcInstallerInstallLog) << "Prepare update trigger:" << trigger;
+            if (!availableTriggers.contains(trigger)) {
+                qCCritical(QInstaller::lcInstallerInstallLog) << "Update trigger" << trigger << "is unkown!";
+                return false;
+            }
+            m_core->setUpdateTrigger(trigger);
+            qCDebug(QInstaller::lcInstallerInstallLog) << "Use update trigger:" << trigger;
+        }
+
         // Ignore message acceptance options when running the installer with GUI
         if (m_core->isCommandLineInstance()) {
             if (m_parser.isSet(CommandLineOptions::scAcceptMessageQueryLong))

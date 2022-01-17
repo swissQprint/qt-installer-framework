@@ -35,6 +35,7 @@
 #include <productkeycheck.h>
 #include <errors.h>
 #include <loggingutils.h>
+#include <iostream>
 
 #include <QDir>
 #include <sqp/installsettings.hpp>
@@ -110,14 +111,6 @@ int CommandLineInterface::checkUpdates()
         return EXIT_SUCCESS;
     }
     QInstaller::LoggingHandler::instance().printUpdateInformation(components);
-        update.setAttribute(QLatin1String("title"), component->value(QInstaller::scTitle));
-        update.setAttribute(QLatin1String("publisher"), component->value(QInstaller::scPublisher));
-        update.setAttribute(QLatin1String("current"), component->value(QInstaller::scInstalledVersion));
-        update.setAttribute(QLatin1String("canonicalName"), component->value(QInstaller::scName));
-        update.setAttribute(QLatin1String("essential"), component->value(QInstaller::scEssential));
-        update.setAttribute(QLatin1String("virtual"), component->value(QInstaller::scVirtual));
-        update.setAttribute(QLatin1String("releaseDate"), component->value(QInstaller::scReleaseDate));
-        update.setAttribute(QLatin1String("sort"), component->value(QInstaller::scSortingPriority));
     return EXIT_SUCCESS;
 }
 

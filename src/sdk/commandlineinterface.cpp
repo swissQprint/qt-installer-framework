@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -34,11 +34,9 @@
 #include <globals.h>
 #include <productkeycheck.h>
 #include <errors.h>
+#include <loggingutils.h>
 
 #include <QDir>
-#include <QDomDocument>
-
-#include <iostream>
 #include <sqp/installsettings.hpp>
 
 CommandLineInterface::CommandLineInterface(int &argc, char *argv[])
@@ -81,6 +79,13 @@ bool CommandLineInterface::initialize()
         // quite safe to assume that command is the first positional argument.
         m_positionalArguments.removeFirst();
     }
+
+    QString ctrlScript = controlScript();
+    if (!ctrlScript.isEmpty()) {
+        m_core->controlScriptEngine()->loadInContext(
+                QLatin1String("Controller"), ctrlScript);
+        qCDebug(QInstaller::lcInstallerInstallLog) << "Loaded control script" << ctrlScript;
+    }
     return true;
 }
 
@@ -104,29 +109,15 @@ int CommandLineInterface::checkUpdates()
         qCWarning(QInstaller::lcInstallerInstallLog) << "There are currently no updates available.";
         return EXIT_SUCCESS;
     }
-
-    QDomDocument doc;
-    QDomElement root = doc.createElement(QLatin1String("updates"));
-    doc.appendChild(root);
-
-    foreach (QInstaller::Component *component, components) {
-        QDomElement update = doc.createElement(QLatin1String("update"));
-        update.setAttribute(QLatin1String("name"), component->value(QInstaller::scDisplayName));
+    QInstaller::LoggingHandler::instance().printUpdateInformation(components);
         update.setAttribute(QLatin1String("title"), component->value(QInstaller::scTitle));
         update.setAttribute(QLatin1String("publisher"), component->value(QInstaller::scPublisher));
-        update.setAttribute(QLatin1String("version"), component->value(QInstaller::scVersion));
-        update.setAttribute(QLatin1String("size"), component->value(QInstaller::scUncompressedSize));
         update.setAttribute(QLatin1String("current"), component->value(QInstaller::scInstalledVersion));
-        update.setAttribute(QLatin1String("id"), component->value(QInstaller::scName));
         update.setAttribute(QLatin1String("canonicalName"), component->value(QInstaller::scName));
         update.setAttribute(QLatin1String("essential"), component->value(QInstaller::scEssential));
         update.setAttribute(QLatin1String("virtual"), component->value(QInstaller::scVirtual));
         update.setAttribute(QLatin1String("releaseDate"), component->value(QInstaller::scReleaseDate));
         update.setAttribute(QLatin1String("sort"), component->value(QInstaller::scSortingPriority));
-        root.appendChild(update);
-    }
-
-    std::cout << qPrintable(doc.toString(4)) << std::endl;
     return EXIT_SUCCESS;
 }
 
@@ -139,7 +130,10 @@ int CommandLineInterface::listInstalledPackages()
         return EXIT_FAILURE;
     }
     m_core->setPackageManager();
-    m_core->listInstalledPackages();
+    QString regexp;
+    if (!m_positionalArguments.isEmpty())
+        regexp = m_positionalArguments.first();
+    m_core->listInstalledPackages(regexp);
     return EXIT_SUCCESS;
 }
 
@@ -154,7 +148,7 @@ int CommandLineInterface::searchAvailablePackages()
     QString regexp;
     if (!m_positionalArguments.isEmpty())
         regexp = m_positionalArguments.first();
-    m_core->listAvailablePackages(regexp);
+    m_core->listAvailablePackages(regexp, parsePackageFilters());
     return EXIT_SUCCESS;
 }
 
@@ -241,11 +235,42 @@ int CommandLineInterface::plotMachineToken()
     return EXIT_SUCCESS;
 }
 
+int CommandLineInterface::createOfflineInstaller()
+{
+    if (!initialize())
+        return EXIT_FAILURE;
+    if (!m_core->isInstaller() || m_core->isOfflineOnly()) {
+        qCWarning(QInstaller::lcInstallerInstallLog)
+            << "Offline installer can only be created with an online installer.";
+        return EXIT_FAILURE;
+    }
+    if (m_positionalArguments.isEmpty()) {
+        qCWarning(QInstaller::lcInstallerInstallLog) << "Missing components argument.";
+        return EXIT_FAILURE;
+    }
+    if (!(setTargetDir() && checkLicense()))
+        return EXIT_FAILURE;
+
+    if (m_parser.isSet(CommandLineOptions::scOfflineInstallerNameLong)) {
+        m_core->setOfflineBinaryName(m_parser.value(CommandLineOptions::scOfflineInstallerNameLong));
+    } else {
+        const QString offlineName = m_core->offlineBinaryName();
+        qCDebug(QInstaller::lcInstallerInstallLog) << "No filename specified for "
+            "the generated installer, using default name:" << offlineName;
+    }
+    try {
+        return m_core->createOfflineInstaller(m_positionalArguments);
+    } catch (const QInstaller::Error &err) {
+        qCCritical(QInstaller::lcInstallerInstallLog) << err.message();
+        return EXIT_FAILURE;
+    }
+}
+
 bool CommandLineInterface::checkLicense()
 {
     const ProductKeyCheck *const productKeyCheck = ProductKeyCheck::instance();
     if (!productKeyCheck->hasValidLicense()) {
-        qCWarning(QInstaller::lcPackageLicenses) << "No valid license found.";
+        qCWarning(QInstaller::lcInstallerInstallLog) << "No valid license found.";
         return false;
     }
     return true;
@@ -257,7 +282,7 @@ bool CommandLineInterface::setTargetDir()
     if (m_parser.isSet(CommandLineOptions::scRootLong)) {
         targetDir = m_parser.value(CommandLineOptions::scRootLong);
     } else {
-        targetDir = m_core->value(QLatin1String("TargetDir"));
+        targetDir = m_core->value(QInstaller::scTargetDir);
         qCDebug(QInstaller::lcInstallerInstallLog) << "No target directory specified, using default value:" << targetDir;
     }
     if (m_core->checkTargetDir(targetDir)) {
@@ -265,9 +290,33 @@ bool CommandLineInterface::setTargetDir()
         if (!targetDirWarning.isEmpty()) {
             qCWarning(QInstaller::lcInstallerInstallLog) << m_core->targetDirWarning(targetDir);
         } else {
-            m_core->setValue(QLatin1String("TargetDir"), targetDir);
+            m_core->setValue(QInstaller::scTargetDir, targetDir);
             return true;
         }
     }
     return false;
+}
+
+QHash<QString, QString> CommandLineInterface::parsePackageFilters()
+{
+    QHash<QString, QString> filterHash;
+    if (m_parser.isSet(CommandLineOptions::scFilterPackagesLong)) {
+        const QStringList filterList = m_parser.value(CommandLineOptions::scFilterPackagesLong)
+            .split(QLatin1Char(','));
+
+        for (auto &filter : filterList) {
+            const int i = filter.indexOf(QLatin1Char('='));
+            const QString element = filter.left(i).trimmed();
+            const QString value = filter.mid(i + 1).trimmed();
+
+            if ((i == -1) || (filter.count(QLatin1Char('=') > 1))
+                    || element.isEmpty() || value.isEmpty()) {
+                qCWarning(QInstaller::lcInstallerInstallLog).nospace() << "Ignoring unknown entry "
+                    << filter << "in package filter arguments. Please use syntax \"element=regex,...\".";
+                continue;
+            }
+            filterHash.insert(element, value);
+        }
+    }
+    return filterHash;
 }

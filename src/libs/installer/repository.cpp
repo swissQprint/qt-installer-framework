@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -32,6 +32,13 @@
 #include <QDataStream>
 #include <QFileInfo>
 #include <QStringList>
+#include <QDir>
+
+/*!
+    \fn inline uint QInstaller::qHash(const Repository &repository)
+
+    Returns a hash of the \a repository.
+*/
 
 namespace QInstaller {
 
@@ -83,7 +90,7 @@ Repository::Repository(const QUrl &url, bool isDefault, bool compressed)
 */
 Repository Repository::fromUserInput(const QString &repositoryUrl, bool compressed)
 {
-    QUrl url = QUrl::fromUserInput(repositoryUrl);
+    QUrl url = QUrl::fromUserInput(repositoryUrl, QDir::currentPath());
     const QStringList supportedSchemes = KDUpdater::FileDownloaderFactory::supportedSchemes();
     if (!supportedSchemes.contains(url.scheme()) && QFileInfo(url.toString()).exists())
         url = QLatin1String("file:///") + url.toString();
@@ -224,14 +231,6 @@ bool Repository::isCompressed() const
     return m_compressed;
 }
 
-/*!
-    Sets this repository to \a compressed state to know weather the repository
-    needs to be uncompressed before use.
-*/
-void Repository::setCompressed(bool compressed)
-{
-    m_compressed = compressed;
-}
 /*!
     Compares the values of this repository to \a other and returns true if they are equal (same server,
     default state, enabled state as well as username and password). \sa operator!=()

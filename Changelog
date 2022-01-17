@@ -1,3 +1,108 @@
+4.2.0
+- Print essential component information regardless of verbosity (QTIFW-2349)
+- Update Chinese translation
+- Update Russian translation
+- Update French translation
+- Update Japanese translation
+- Add Portuguese translation
+- Update Arabic translation
+- Update Spanish translation
+- Update German translation
+- Update Polish translation file
+- Add ability to query used language in script (QTIFW-2208)
+- Windows: return the value of "TargetDir" variable with '/' as separator (QTIFW-2344)
+- Fix uncaught exception in InstallIconsOperation::performOperation() (QTIFW-2347)
+- Add invokable methods for converting paths to/from native separators (QTIFW-2344)
+- binarycreator: support selecting compression level and archive format (QTIFW-1587)
+- repogen: add support for setting compression level for data archives (QTIFW-1587)
+- Add support for handling archive files with libarchive (QTIFW-2255)
+- Fix qbsp adding from GUI (QTIFW-2312)
+- Apply environment changes to system environment (QTIFW-2288)
+- Add total remaining download time estimation for archives (QTIFW-2207)
+- Repogen: Fix updating of repository from a partial package set directory (QTIFW-2287)
+- MT: Install new <ForcedInstallation> components with default check state (QTIFW-2286)
+- MT: Fix reading of StartMenuDir value from incorrect config file (QTIFW-2284)
+- MT: Hide superfluous size information when running as package manager (QTIFW-2293)
+- QtPatch: Fix catching non-zero exit codes from "qmake -query" (QTIFW-2273)
+- Fix hang when canceling metadatajob by an external call (QTIFW-2282)
+- Fix replacing of {external-link} tags in component tree view tooltips (QTIFW-2264)
+- Fix usage of '--install-compressed-repository' with a relative file path
+- Load and install translations as early as possible (QTIFW-1888)
+- Load control script also when using CLI (QTIFW-2268)
+- Clarify required user actions when there is an essential update (QTIFW-2244)
+- Doc: add note about limitation with CreateShortcut on Windows (QTIFW-2257)
+- Fix loading translations with upper letters (QTIFW-2265)
+- Fix updating visibility of the QToolBox widget on ComponentSelectionPage
+- Reorder ComponentSelectionPage widgets (QTIFW-2096)
+- Offline-generator: Fix duplicate package entries in internal Updates.xml (QTIFW-2190)
+- CLI: Add support for additional filtering of search results (QTIFW-2168)
+- Use pkexec to start the headless process used for privileged operations (QTIFW-1794)
+- CLI: improvements to 'search' and 'install' command output (QTIFW-2168)
+- Fix styling of QMessageBoxes (QTIFW-2121)
+- Add alternative way to update components from repository (QTIFW-1798)
+
+4.1.1
+- Add possibility to filter available packages with regexp from script (QTIFW-2225)
+- Add documentation for configuring and overwriting default translations (QTIFW-2217)
+- Fix loading of component translations (QTIFW-2220)
+- CLI: Print warning when creating over 4GB installers on Windows (QTIFW-2199)
+- Remove wayland dependency from Linux binaries (QTIFW-2067)
+- Fix maintenancetool overwriting installer values (QTIFW-2218)
+- Fix QFile warning on rollback (QTIFW-2213)
+- Fix return value for detached 'Execute' operation (QTIFW-2210)
+
+4.1.0
+- Emit signal when components are recalculated (QTIFW-2172)
+- Add Arabic translation (QTIFW-1425)
+- Update side widget with the binary marker changes in introduction page (QTIFW-2150)
+- Fix App Error when trying to launch a running installer (QTIFW-2149)
+- Fix value overwrite from command line (QTIFW-2021)
+- Fix DesktopDir value for AllUsers
+- CLI: Add warning when cli-only options are used without command keyword (QTIFW-2046)
+- Translations: Update existing TS files (QTIFW-2126)
+- Add possibility to move component in component tree (QTIFW-594)
+- Try rerunning execute operation (QTIFW-2125)
+- CLI: Exit when expecting user input and the output device is not a TTY (QTIFW-1949)
+- Add support for setting minimum wizard dimensions in config.xml (QTIFW-1903)
+- Save Execute operation with predefined variable (QTIFW-2124)
+- Make LicenseAgreementPage license list & details browser user-resizable (QTIFW-1987)
+- Fix wizard page addition before ComponentSelectionPage (QTIFW-1168)
+- Remove double calculation of uninstall components (QTIFW-1021)
+- Replace usage of derived LazyPlainTextEdit class with QTextEdit (QTIFW-1994)
+- Fix InstallIcons and CreateDesktopEntry operations usage as root (QTIFW-2093)
+- Add support for generating offline installer from online (QTIFW-1945)
+- Provide tooltip texts for buttons (QTIFW-2073)
+- Allow disabling undo in CreateLocalRepository operation during uninstall (QTIFW-2094)
+- Remove 'Reject Licenses' radio button and change 'Accept Licenses' to checkbox (QTIFW-2057)
+- Add highdpi support for watermark, banner, background and pagelistpixmaps (QTIFW-2084)
+- Fix translating from component script (QTIFW-392)
+- Allow disabling undo in RegisterFileType operation during uninstall (QTIFW-2089)
+- Allow disabling undo in SimpleMoveFile operation during uninstall (2090)
+- Allow disabling undo in CopyDirectory during uninstall (QTIFW-2088)
+- Allow disabling undo of GlobalSettings during uninstall (QTIFW-1973)
+- Introduce ForcedUpdate element for component (QTIFW-1565)
+- Add high dpi image support for Logo and ProductImages (QTIFW-2061, QTIFW-2060)
+- Copy highdpi images as resource to installer (QTIFW-2080)
+- Tools: fix binarycreator usage with unified meta-only repositories (QTIFW-2051)
+- Add option to define operations in component.xml (QTIFW-507)
+- Print package information in xml format (QTIFW-1950)
+- Arrange licenses and filter duplicates
+- CLI: Print extra archive information with higher verbosity level (QTIFW-1998)
+- Allow to set ForcedInstallation from component script (QTIFW-675)
+- Automatically uninstall unneeded virtual components (QTBUG-76210)
+- CLI: Add possibility to filter installed packages with regexp (QTIFW-1953)
+
+4.0.1
+- Enable HighDPI support in X11
+- Fix AppendFile undo (QTIFW-2020)
+- Repogen: Fix unite metadata when --repository switch used ( QTIFW-2018)
+- Docs: Fix doc on gui::showFinishedPage() (QTIFW-798)
+- Fix loading controller script with comment on last line (QTIFW-1062)
+- Fix segfault on file download error properly
+- Doc: Update command line interface reference
+- Obey stylesheet in SettingsDialog (QTIFW-1507)
+- CLI: Fix wrong warning text in command 'purge' for running processes (QTIFW-1996)
+
 4.0.0
 - Fix essential update (QTIFW-1970)
 - Print package id when running checkupdates (QTIFW-1972)

@@ -32,6 +32,7 @@
 #include "repository.h"
 #include "repositorycategory.h"
 #include "globals.h"
+#include "fileutils.h"
 
 #include <QtCore/QFileInfo>
 #include <QtCore/QStringList>
@@ -58,20 +59,13 @@ using namespace QInstaller;
 
 static const QLatin1String scInstallerApplicationIcon("InstallerApplicationIcon");
 static const QLatin1String scInstallerWindowIcon("InstallerWindowIcon");
-static const QLatin1String scLogo("Logo");
 static const QLatin1String scPrefix("Prefix");
-static const QLatin1String scWatermark("Watermark");
-static const QLatin1String scBanner("Banner");
 static const QLatin1String scProductUrl("ProductUrl");
-static const QLatin1String scBackground("Background");
-static const QLatin1String scPageListPixmap("PageListPixmap");
 static const QLatin1String scAdminTargetDir("AdminTargetDir");
 static const QLatin1String scMaintenanceToolName("MaintenanceToolName");
 static const QLatin1String scUserRepositories("UserRepositories");
 static const QLatin1String scTmpRepositories("TemporaryRepositories");
 static const QLatin1String scMaintenanceToolIniFile("MaintenanceToolIniFile");
-static const QLatin1String scRemoteRepositories("RemoteRepositories");
-static const QLatin1String scRepositoryCategories("RepositoryCategories");
 static const QLatin1String scDependsOnLocalInstallerBinary("DependsOnLocalInstallerBinary");
 static const QLatin1String scTranslations("Translations");
 static const QLatin1String scCreateLocalRepository("CreateLocalRepository");
@@ -305,7 +299,8 @@ Settings Settings::fromFileAndPrefix(const QString &path, const QString &prefix,
                 << scAllowSpaceInPath << scAllowNonAsciiCharacters << scDisableAuthorizationFallback
                 << scDisableCommandLineInterface
                 << scWizardStyle << scStyleSheet << scTitleColor
-                << scWizardDefaultWidth << scWizardDefaultHeight << scWizardShowPageList << scProductImages
+                << scWizardDefaultWidth << scWizardDefaultHeight << scWizardMinimumWidth << scWizardMinimumHeight
+                << scWizardShowPageList << scProductImages
                 << scRepositorySettingsPageVisible << scTargetConfigurationFile
                 << scRemoteRepositories << scTranslations << scUrlQueryString << QLatin1String(scControlScript)
                 << scCreateLocalRepository << scInstallActionColumnVisible << scSupportsModify << scAllowUnstableComponents
@@ -327,7 +322,7 @@ Settings Settings::fromFileAndPrefix(const QString &path, const QString &prefix,
             reader.raiseError(QString::fromLatin1("Element \"%1\" has been defined before.").arg(name));
 
         if (name == scTranslations) {
-            s.setTranslations(readArgumentAttributes(reader, parseMode, QLatin1String("Translation"), true));
+            s.setTranslations(readArgumentAttributes(reader, parseMode, QLatin1String("Translation"), false));
         } else if (name == scRunProgramArguments) {
             s.setRunProgramArguments(readArgumentAttributes(reader, parseMode, QLatin1String("Argument")));
         } else if (name == scProductImages) {
@@ -487,6 +482,16 @@ int Settings::wizardDefaultHeight() const
     return lengthToInt(d->m_data.value(scWizardDefaultHeight));
 }
 
+int Settings::wizardMinimumWidth() const
+{
+    return lengthToInt(d->m_data.value(scWizardMinimumWidth));
+}
+
+int Settings::wizardMinimumHeight() const
+{
+    return lengthToInt(d->m_data.value(scWizardMinimumHeight));
+}
+
 bool Settings::wizardShowPageList() const
 {
     return d->m_data.value(scWizardShowPageList, true).toBool();
@@ -497,10 +502,12 @@ QStringList Settings::productImages() const
     const QVariant variant = d->m_data.value(scProductImages);
     QStringList imagePaths;
     if (variant.canConvert<QStringList>()) {
-        foreach (const QString &imagePath, variant.value<QStringList>()) {
-            QFileInfo(imagePath).isAbsolute()
-                ? imagePaths.append(imagePath)
-                : imagePaths.append(d->m_data.value(scPrefix).toString() + QLatin1Char('/') + imagePath);
+        foreach (auto image, variant.value<QStringList>()) {
+            QString imagePath = QFileInfo(image).isAbsolute()
+                    ? image
+                    : d->m_data.value(scPrefix).toString() + QLatin1Char('/') + image;
+            QInstaller::replaceHighDpiImage(imagePath);
+            imagePaths.append(imagePath);
         }
     }
     return imagePaths;
@@ -922,7 +929,7 @@ void Settings::setSaveDefaultRepositories(bool save)
 QString Settings::repositoryCategoryDisplayName() const
 {
     QString displayName = d->m_data.value(QLatin1String(scRepositoryCategoryDisplayName)).toString();
-    return displayName.isEmpty() ? tr("Select Package Categories") : displayName;
+    return displayName.isEmpty() ? tr("Select Categories") : displayName;
 }
 
 void Settings::setRepositoryCategoryDisplayName(const QString& name)

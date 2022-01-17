@@ -26,7 +26,6 @@
 ****************************************************************************/
 
 /*!
-    \contentspage{index.html}{Qt Installer Framework}
     \previouspage noninteractive.html
     \page scripting.html
     \nextpage operations.html
@@ -120,6 +119,8 @@
     update operations to the installation from within a script using
     component::addOperation(). If you need to run an operation that requires
     administrative rights, use component::addElevatedOperation() instead.
+    Alternative way of adding custom operations is to use \c component.xml, see
+    \l{Package Directory}
 
     Operations need to be added before the actual installation step. Override
     \l component::createOperations() to register custom operations for a
@@ -255,6 +256,9 @@
 
                 This variable is deprecated: Use \l systemInfo instead.
         \row
+            \li FrameworkVersion
+            \li Version number of the Qt Installer Framework used to build the installation program.
+        \row
             \li RootDir
             \li Root directory of the filesystem.
         \row
@@ -313,6 +317,9 @@
                 For example, \c {C:\ProgramData\Microsoft\Windows\Start Menu\Programs}
 
                 Only available on Windows.
+        \row
+            \li UILanguage
+            \li The language that is used in the installer.
     \endtable
 
     The variables can be resolved by calls to installer::value(). If embedded

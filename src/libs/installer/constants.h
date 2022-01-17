@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -40,6 +40,7 @@ static const QLatin1String scFalse("false");
 static const QLatin1String scScript("script");
 static const QLatin1String scAllUsersStartMenuProgramsPath("AllUsersStartMenuProgramsPath");
 static const QLatin1String scUserStartMenuProgramsPath("UserStartMenuProgramsPath");
+static const QLatin1String scUILanguage("UILanguage");
 
 static const QLatin1String scName("Name");
 static const QLatin1String scVersion("Version");
@@ -50,10 +51,12 @@ static const QLatin1String scInheritVersion("inheritVersionFrom");
 static const QLatin1String scReplaces("Replaces");
 static const QLatin1String scDownloadableArchives("DownloadableArchives");
 static const QLatin1String scEssential("Essential");
+static const QLatin1String scForcedUpdate("ForcedUpdate");
 static const QLatin1String scTargetDir("TargetDir");
 static const QLatin1String scReleaseDate("ReleaseDate");
 static const QLatin1String scDescription("Description");
 static const QLatin1String scDisplayName("DisplayName");
+static const QLatin1String scTreeName("TreeName");
 static const QLatin1String scDependencies("Dependencies");
 static const QLatin1String scAutoDependOn("AutoDependOn");
 static const QLatin1String scNewComponent("NewComponent");
@@ -63,7 +66,9 @@ static const QLatin1String scInstalledVersion("InstalledVersion");
 static const QLatin1String scUncompressedSize("UncompressedSize");
 static const QLatin1String scUncompressedSizeSum("UncompressedSizeSum");
 static const QLatin1String scRequiresAdminRights("RequiresAdminRights");
+static const QLatin1String scOfflineBinaryName("OfflineBinaryName");
 static const QLatin1String scSHA1("SHA1");
+static const QLatin1String scContentSha1("ContentSha1");
 
 // constants used throughout the components class
 static const QLatin1String scVirtual("Virtual");
@@ -82,6 +87,8 @@ static const QLatin1String scTargetConfigurationFile("TargetConfigurationFile");
 static const QLatin1String scAllowNonAsciiCharacters("AllowNonAsciiCharacters");
 static const QLatin1String scDisableAuthorizationFallback("DisableAuthorizationFallback");
 static const QLatin1String scDisableCommandLineInterface("DisableCommandLineInterface");
+static const QLatin1String scRemoteRepositories("RemoteRepositories");
+static const QLatin1String scRepositoryCategories("RepositoryCategories");
 static const QLatin1String scRepositorySettingsPageVisible("RepositorySettingsPageVisible");
 static const QLatin1String scAllowSpaceInPath("AllowSpaceInPath");
 static const QLatin1String scWizardStyle("WizardStyle");
@@ -89,6 +96,8 @@ static const QLatin1String scStyleSheet("StyleSheet");
 static const QLatin1String scTitleColor("TitleColor");
 static const QLatin1String scWizardDefaultWidth("WizardDefaultWidth");
 static const QLatin1String scWizardDefaultHeight("WizardDefaultHeight");
+static const QLatin1String scWizardMinimumWidth("WizardMinimumWidth");
+static const QLatin1String scWizardMinimumHeight("WizardMinimumHeight");
 static const QLatin1String scWizardShowPageList("WizardShowPageList");
 static const QLatin1String scProductImages("ProductImages");
 static const QLatin1String scUrlQueryString("UrlQueryString");
@@ -98,7 +107,12 @@ static const QLatin1String scSupportsModify("SupportsModify");
 static const QLatin1String scAllowUnstableComponents("AllowUnstableComponents");
 static const QLatin1String scSaveDefaultRepositories("SaveDefaultRepositories");
 static const QLatin1String scRepositoryCategoryDisplayName("RepositoryCategoryDisplayName");
-
+static const QLatin1String scHighDpi("@2x.");
+static const QLatin1String scWatermark("Watermark");
+static const QLatin1String scBanner("Banner");
+static const QLatin1String scLogo("Logo");
+static const QLatin1String scBackground("Background");
+static const QLatin1String scPageListPixmap("PageListPixmap");
 const char scRelocatable[] = "@RELOCATABLE_PATH@";
 }
 
@@ -129,6 +143,8 @@ static const QLatin1String scListShort("li");
 static const QLatin1String scListLong("list");
 static const QLatin1String scSearchShort("se");
 static const QLatin1String scSearchLong("search");
+static const QLatin1String scCreateOfflineShort("co");
+static const QLatin1String scCreateOfflineLong("create-offline");
 static const QLatin1String scPurgeShort("pr");
 static const QLatin1String scPurgeLong("purge");
 
@@ -172,6 +188,8 @@ static const QLatin1String scConfirmCommandLong("confirm-command");
 // Misc installation options
 static const QLatin1String scRootShort("t");
 static const QLatin1String scRootLong("root");
+static const QLatin1String scOfflineInstallerNameShort("oi");
+static const QLatin1String scOfflineInstallerNameLong("offline-installer-name");
 static const QLatin1String scPlatformShort("p");
 static const QLatin1String scPlatformLong("platform");
 static const QLatin1String scNoForceInstallationShort("nf");
@@ -186,6 +204,8 @@ static const QLatin1String scCreateLocalRepositoryShort("cl");
 static const QLatin1String scCreateLocalRepositoryLong("create-local-repository");
 static const QLatin1String scNoDefaultInstallationShort("nd");
 static const QLatin1String scNoDefaultInstallationLong("no-default-installations");
+static const QLatin1String scFilterPackagesShort("fp");
+static const QLatin1String scFilterPackagesLong("filter-packages");
 
 // Developer options
 static const QLatin1String scScriptShort("s");
@@ -220,6 +240,8 @@ static const QStringList scCommandLineInterfaceOptions = {
     scListLong,
     scSearchShort,
     scSearchLong,
+    scCreateOfflineShort,
+    scCreateOfflineLong,
     scPurgeShort,
     scPurgeLong
 };

@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -31,7 +31,7 @@
 #include "errors.h"
 #include "fileutils.h"
 #include "globals.h"
-#include "lib7z_facade.h"
+#include "archivefactory.h"
 #include "messageboxhandler.h"
 #include "packagemanagercore.h"
 #include "remoteclient.h"
@@ -45,6 +45,7 @@
 #include <QtCore/QDirIterator>
 #include <QtCore/QRegExp>
 #include <QtCore/QTranslator>
+#include <QtCore/QRegularExpression>
 
 #include <QApplication>
 
@@ -212,6 +213,16 @@ static const QLatin1String scUnstable("Unstable");
 */
 
 /*!
+    \property QInstaller::Component::treeName
+
+    \brief The tree name of the component. Specifies the location of the component in the install tree view.
+
+    \note If the tree name is not set, the tree view is organized based on the component name.
+
+    \note Must be unique, the tree name must not conflict with other component's names or tree names.
+*/
+
+/*!
     \fn QInstaller::Component::loaded()
 
     \sa {component::loaded}{component.loaded}
@@ -237,6 +248,7 @@ static const QLatin1String scUnstable("Unstable");
 */
 Component::Component(PackageManagerCore *core)
     : d(new ComponentPrivate(core, this))
+    , m_defaultArchivePath(QLatin1String("@TargetDir@"))
 {
     setPrivate(d);
 
@@ -273,6 +285,7 @@ void Component::loadDataFromPackage(const KDUpdater::LocalPackage &package)
 {
     setValue(scName, package.name);
     setValue(scDisplayName, package.title);
+    setValue(scTreeName, package.treeName);
     setValue(scDescription, package.description);
     setValue(scVersion, package.version);
     setValue(scInheritVersion, package.inheritVersionFrom);
@@ -284,19 +297,18 @@ void Component::loadDataFromPackage(const KDUpdater::LocalPackage &package)
     setValue(scAutoDependOn, package.autoDependencies.join(QLatin1String(",")));
 
     setValue(scForcedInstallation, package.forcedInstallation ? scTrue : scFalse);
-    if (package.forcedInstallation & !PackageManagerCore::noForceInstallation()) {
-        setCheckable(false);
-        setCheckState(Qt::Checked);
-    }
     setValue(scVirtual, package.virtualComp ? scTrue : scFalse);
     setValue(scCurrentState, scInstalled);
     setValue(scCheckable, package.checkable ? scTrue : scFalse);
     setValue(scExpandedByDefault, package.expandedByDefault ? scTrue : scFalse);
+    setValue(scContentSha1, package.contentSha1);
 }
 
 /*!
     Sets variables according to the values set in the package.xml file of \a package.
     Also loads UI files, licenses and translations if they are referenced in the package.xml.
+    If the \c PackageManagerCore object of this component is run as package viewer, then
+    only sets the variables without loading referenced files.
 */
 void Component::loadDataFromPackage(const Package &package)
 {
@@ -304,6 +316,7 @@ void Component::loadDataFromPackage(const Package &package)
 
     setValue(scName, package.data(scName).toString());
     setValue(scDisplayName, package.data(scDisplayName).toString());
+    setValue(scTreeName, package.data(scTreeName).toString());
     setValue(scDescription, package.data(scDescription).toString());
     setValue(scDefault, package.data(scDefault).toString());
     setValue(scAutoDependOn, package.data(scAutoDependOn).toString());
@@ -317,6 +330,7 @@ void Component::loadDataFromPackage(const Package &package)
     setValue(scSortingPriority, package.data(scSortingPriority).toString());
 
     setValue(scEssential, package.data(scEssential).toString());
+    setValue(scForcedUpdate, package.data(scForcedUpdate).toString());
     setValue(scUpdateText, package.data(scUpdateText).toString());
     setValue(scNewComponent, package.data(scNewComponent).toString());
     setValue(scRequiresAdminRights, package.data(scRequiresAdminRights).toString());
@@ -331,10 +345,10 @@ void Component::loadDataFromPackage(const Package &package)
     if (PackageManagerCore::noForceInstallation())
         forced = scFalse;
     setValue(scForcedInstallation, forced);
-    if (forced == scTrue) {
-        setCheckable(false);
-        setCheckState(Qt::Checked);
-    }
+    setValue(scContentSha1, package.data(scContentSha1).toString());
+
+    if (d->m_core->isPackageViewer())
+        return;
 
     setLocalTempPath(QInstaller::pathFromUrl(package.packageSource().url));
     const QStringList uis = package.data(QLatin1String("UserInterfaces")).toString()
@@ -350,6 +364,9 @@ void Component::loadDataFromPackage(const Package &package)
     QHash<QString, QVariant> licenseHash = package.data(QLatin1String("Licenses")).toHash();
     if (!licenseHash.isEmpty())
         loadLicenses(QString::fromLatin1("%1/%2/").arg(localTempPath(), name()), licenseHash);
+    QVariant operationsVariant = package.data(QLatin1String("Operations"));
+    if (operationsVariant.canConvert<QList<QPair<QString, QVariant>>>())
+        m_operationsList = operationsVariant.value<QList<QPair<QString, QVariant>>>();
 }
 
 /*!
@@ -359,16 +376,20 @@ quint64 Component::updateUncompressedSize()
 {
     quint64 size = 0;
 
-    if (installAction() == ComponentModelHelper::Install
-            || installAction() == ComponentModelHelper::KeepInstalled) {
+    const bool installOrKeepInstalled = (installAction() == ComponentModelHelper::Install
+        || installAction() == ComponentModelHelper::KeepInstalled);
+
+    if (installOrKeepInstalled)
         size = d->m_vars.value(scUncompressedSize).toLongLong();
-    }
 
     foreach (Component* comp, d->m_allChildComponents)
         size += comp->updateUncompressedSize();
 
     setValue(scUncompressedSizeSum, QString::number(size));
-    setData(humanReadableSize(size), UncompressedSize);
+    if (size == 0 && !installOrKeepInstalled)
+        setData(QVariant(), UncompressedSize);
+    else
+        setData(humanReadableSize(size), UncompressedSize);
 
     return size;
 }
@@ -423,6 +444,12 @@ void Component::setValue(const QString &key, const QString &value)
         this->setCheckable(normalizedValue.toLower() == scTrue);
     if (key == scExpandedByDefault)
         this->setExpandedByDefault(normalizedValue.toLower() == scTrue);
+    if (key == scForcedInstallation) {
+        if (value == scTrue && !PackageManagerCore::noForceInstallation()) {
+            setCheckable(false);
+            setCheckState(Qt::Checked);
+        }
+    }
 
     d->m_vars[key] = normalizedValue;
     emit valueChanged(key, normalizedValue);
@@ -520,6 +547,16 @@ QString Component::displayName() const
 }
 
 /*!
+    Returns this component's location in the tree view. If the tree name is not
+    set, returns the component name. The tree name must be unique, it must not
+    conflict with other tree names or component names.
+*/
+QString Component::treeName() const
+{
+    return d->m_vars.value(scTreeName, name());
+}
+
+/*!
     Loads the component script into the script engine.
 */
 void Component::loadComponentScript()
@@ -592,15 +629,15 @@ void Component::loadTranslations(const QDir &directory, const QStringList &qms)
     while (it.hasNext()) {
         const QString filename = it.next();
         const QString basename = QFileInfo(filename).baseName();
-        if (!uiLanguage.startsWith(QFileInfo(filename).baseName(), Qt::CaseInsensitive))
-            continue; // do not load the file if it does not match the UI language
 
         if (!translations.isEmpty()) {
             bool found = false;
             foreach (const QString &translation, translations)
-                found |= translation.startsWith(basename, Qt::CaseInsensitive);
+                found |= translation.startsWith(QLatin1String("ifw_") + basename, Qt::CaseInsensitive);
             if (!found) // don't load the file if it does match the UI language but is not allowed to be used
                 continue;
+        } else if (!uiLanguage.startsWith(QFileInfo(filename).baseName(), Qt::CaseInsensitive)) {
+            continue; // do not load the file if it does not match the UI language
         }
 
         QScopedPointer<QTranslator> translator(new QTranslator(this));
@@ -644,13 +681,14 @@ void Component::loadUserInterfaces(const QDir &directory, const QStringList &uis
 
 /*!
   Loads the text of the licenses contained in \a licenseHash from \a directory.
-  This is saved into a new hash containing the filename and the text of that file.
+  This is saved into a new hash containing the filename, the text and the priority of that file.
 */
 void Component::loadLicenses(const QString &directory, const QHash<QString, QVariant> &licenseHash)
 {
     QHash<QString, QVariant>::const_iterator it;
     for (it = licenseHash.begin(); it != licenseHash.end(); ++it) {
-        const QString &fileName = it.value().toString();
+        QVariantMap license = it.value().toMap();
+        const QString &fileName = license.value(QLatin1String("file")).toString();
 
         if (!ProductKeyCheck::instance()->isValidLicenseTextFile(fileName))
             continue;
@@ -684,10 +722,44 @@ void Component::loadLicenses(const QString &directory, const QHash<QString, QVar
         }
         QTextStream stream(&file);
         stream.setCodec("UTF-8");
-        d->m_licenses.insert(it.key(), qMakePair(fileName, stream.readAll()));
+        license.insert(QLatin1String("content"), stream.readAll());
+        d->m_licenses.insert(it.key(), license);
     }
 }
 
+/*!
+  Loads all operations defined in the component.xml except Extract operation.
+  Operations are added to the list of operations needed to install this component.
+*/
+void Component::loadXMLOperations()
+{
+    for (auto operation: m_operationsList) {
+        if (operation.first != QLatin1String("Extract"))
+           addOperation(operation.first, operation.second.toStringList());
+    }
+}
+
+/*!
+  Loads all Extract operations defined in the component.xml.
+  Operations are overwriting the default implementation of Extract operation.
+*/
+void Component::loadXMLExtractOperations()
+{
+    for (auto operation: m_operationsList) {
+        if (operation.first == QLatin1String("Extract")) {
+            // Create hash for Extract operations. Operation has a mandatory extract folder as
+            // first argument and optional archive name as second argument.
+            const QStringList &operationArgs = operation.second.toStringList();
+            if (operationArgs.count() == 2) {
+                const QString archiveName = value(scVersion) + operationArgs.at(1);
+                const QString archivePath = QString::fromLatin1("installer://%1/%2").arg(name()).arg(archiveName);
+                m_archivesHash.insert(archivePath, operationArgs.at(0));
+            } else if (operationArgs.count() == 1) {
+                m_defaultArchivePath = operationArgs.at(0);
+            }
+        }
+    }
+}
 
 /*!
     \property QInstaller::Component::userInterfaces
@@ -700,9 +772,9 @@ QStringList Component::userInterfaces() const
 }
 
 /*!
-    Returns a hash that contains the file names and text of license files for the component.
+    Returns a hash that contains the file names, text and priorities of license files for the component.
 */
-QHash<QString, QPair<QString, QString> > Component::licenses() const
+QHash<QString, QVariantMap> Component::licenses() const
 {
     return d->m_licenses;
 }
@@ -793,11 +865,15 @@ void Component::createOperationsForArchive(const QString &archive)
             return;
     }
 
-    const bool isZip = Lib7z::isSupportedArchive(archive);
+    QScopedPointer<AbstractArchive> archiveFile(ArchiveFactory::instance().create(archive));
+    const bool isZip = (archiveFile && archiveFile->open(QIODevice::ReadOnly) && archiveFile->isSupported());
 
     if (isZip) {
-        // archives get completely extracted per default (if the script isn't doing other stuff)
-        addOperation(QLatin1String("Extract"), QStringList() << archive << QLatin1String("@TargetDir@"));
+        // component.xml can override this value
+        if (m_archivesHash.contains(archive))
+            addOperation(QLatin1String("Extract"), QStringList() << archive << m_archivesHash.value(archive));
+        else
+            addOperation(QLatin1String("Extract"), QStringList() << archive << m_defaultArchivePath);
     } else {
         createOperationsForPath(archive);
     }
@@ -824,10 +900,11 @@ void Component::createOperations()
             d->m_operationsCreated = true;
             return;
     }
-
+    loadXMLExtractOperations();
     foreach (const QString &archive, archives())
         createOperationsForArchive(archive);
 
+    loadXMLOperations();
     d->m_operationsCreated = true;
 }
 
@@ -967,9 +1044,11 @@ OperationList Component::operations() const
             d->m_licenseOperation->setValue(QLatin1String("component"), name());
 
             QVariantMap licenses;
-            const QList<QPair<QString, QString> > values = d->m_licenses.values();
-            for (int i = 0; i < values.count(); ++i)
-                licenses.insert(values.at(i).first, values.at(i).second);
+            const QList<QVariantMap> values = d->m_licenses.values();
+            for (int i = 0; i < values.count(); ++i) {
+                licenses.insert(values.at(i).value(QLatin1String("file")).toString(),
+                        values.at(i).value(QLatin1String("content")));
+            }
             d->m_licenseOperation->setValue(QLatin1String("licenses"), licenses);
             d->m_operations.append(d->m_licenseOperation);
         }
@@ -1052,7 +1131,13 @@ Operation *Component::createOperation(const QString &operationName, const QStrin
     if (operation->name() == QLatin1String("Delete"))
         operation->setValue(QLatin1String("performUndo"), false);
 
-    operation->setArguments(d->m_core->replaceVariables(parameters));
+    // Operation can contain variables which are resolved when performing the operation
+    if (operation->requiresUnreplacedVariables())
+        operation->setArguments(parameters);
+    else
+        operation->setArguments(d->m_core->replaceVariables(parameters));
+
+
     operation->setValue(QLatin1String("component"), name());
     return operation;
 }
@@ -1226,6 +1311,8 @@ bool Component::validatePage()
 
 /*!
     Adds the component specified by \a newDependency to the list of dependencies.
+    Alternatively, multiple components can be specified by separating each with
+    a comma.
 
     \sa {component::addDependency}{component.addDependency}
     \sa dependencies
@@ -1247,6 +1334,8 @@ QStringList Component::dependencies() const
 
 /*!
     Adds the component specified by \a newDependOn to the automatic depend-on list.
+    Alternatively, multiple components can be specified by separating each with
+    a comma.
 
     \sa {component::addAutoDependOn}{component.addAutoDependOn}
     \sa autoDependencies
@@ -1298,8 +1387,10 @@ bool Component::isAutoDependOn(const QSet<QString> &componentsToInstall) const
         if (componentsToInstall.contains(autoDependOnSet)) {
             foreach (const QString &autoDep, autoDependOnSet) {
                 Component *component = packageManagerCore()->componentByName(autoDep);
-                if (component->value(scEssential, scFalse).toLower() == scTrue)
+                if ((component->value(scEssential, scFalse).toLower() == scTrue)
+                        || component->isForcedUpdate()) {
                     return true;
+                }
             }
         }
         return false;
@@ -1406,6 +1497,17 @@ bool Component::componentChangeRequested()
     return updateRequested() || isSelectedForInstallation() || uninstallationRequested();
 }
 
+/*!
+    Returns \c true if the component is installed and has a \c ForcedUpdate flag set.
+    ForcedUpdate components will be updated together with essential components before
+    any other component can be updated or installed.
+
+    \sa {component::isForcedUpdate}{component.isForcedUpdate}
+*/
+bool Component::isForcedUpdate()
+{
+    return isInstalled() && (value(scForcedUpdate, scFalse).toLower() == scTrue);
+}
 
 /*!
     \sa {component::setUninstalled}{component.setUninstalled}
@@ -1543,26 +1645,23 @@ void Component::updateModelData(const QString &key, const QString &data)
         setData(humanReadableSize(size), UncompressedSize);
     }
 
+    QString tooltipText;
     const QString &updateInfo = d->m_vars.value(scUpdateText);
     if (!d->m_core->isUpdater() || updateInfo.isEmpty()) {
-        QString tooltipText
-                = QString::fromLatin1("<html><body>%1</body></html>").arg(d->m_vars.value(scDescription));
-        if (isUnstable()) {
-            tooltipText += QLatin1String("<br>") + tr("There was an error loading the selected component. "
-                                                          "This component can not be installed.");
-        }
-        setData(tooltipText, Qt::ToolTipRole);
+        tooltipText = QString::fromLatin1("<html><body>%1</body></html>").arg(d->m_vars.value(scDescription));
     } else {
-        QString tooltipText
-                = d->m_vars.value(scDescription) + QLatin1String("<br><br>")
-                + tr("Update Info: ") + updateInfo;
-        if (isUnstable()) {
-            tooltipText += QLatin1String("<br>") + tr("There was an error loading the selected component. "
-                                                          "This component can not be updated.");
-        }
-
-        setData(tooltipText, Qt::ToolTipRole);
+        tooltipText = d->m_vars.value(scDescription) + QLatin1String("<br><br>")
+            + tr("Update Info: ") + updateInfo;
     }
+    if (isUnstable()) {
+        tooltipText += QLatin1String("<br>") + tr("There was an error loading the selected component. "
+                                                      "This component cannot be installed.");
+    }
+    // replace {external-link}='' fields in component description with proper link tags
+    tooltipText.replace(QRegularExpression(QLatin1String("{external-link}='(.*?)'")),
+        QLatin1String("<a href=\"\\1\">\\1</a>"));
+
+    setData(tooltipText, Qt::ToolTipRole);
 }
 
 /*!

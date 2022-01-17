@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2020 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -33,6 +33,8 @@
 #include <QtCore/QSet>
 #include <QtCore/QString>
 #include <QtCore/QStringList>
+#include <QtXml/QDomDocument>
+#include <QtXml/QDomNodeList>
 
 QT_BEGIN_NAMESPACE
 class QFileInfo;
@@ -58,11 +60,6 @@ public:
 
     void add(const QString &path);
     void add(const QStringList &paths);
-
-    void releaseAll();
-    void release(const QString &path);
-    void passAndReleaseAll(TempDirDeleter &tdd);
-    void passAndRelease(TempDirDeleter &tdd, const QString &path);
 
     void releaseAndDeleteAll();
     void releaseAndDelete(const QString &path);
@@ -97,6 +94,10 @@ private:
     bool INSTALLER_EXPORT isInBundle(const QString &path, QString *bundlePath = 0);
 
     QString replacePath(const QString &path, const QString &pathBefore, const QString &pathAfter);
+    void replaceHighDpiImage(QString &imagePath);
+
+    void INSTALLER_EXPORT trimmedCopyConfigData(const QString &source, const QString &target, const QStringList &elementsToRemoveTags);
+    void copyConfigChildElements(QDomDocument &dom, const QDomNodeList &objects, const QString &sourceDir, const QString &targetDir);
 
 #ifdef Q_OS_WIN
     QString INSTALLER_EXPORT getLongPathName(const QString &name);

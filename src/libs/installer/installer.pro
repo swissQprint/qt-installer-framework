@@ -6,6 +6,7 @@ CONFIG += staticlib
 
 include(../7zip/7zip.pri)
 include(../kdtools/kdtools.pri)
+include(../ifwtools/ifwtools.pri)
 include(../../../installerfw.pri)
 
 # productkeycheck API
@@ -46,6 +47,7 @@ win32:QT += winextras
 
 HEADERS += packagemanagercore.h \
     aspectratiolabel.h \
+    loggingutils.h \
     packagemanagercore_p.h \
     packagemanagergui.h \
     binaryformat.h \
@@ -80,7 +82,6 @@ HEADERS += packagemanagercore.h \
     adminauthorization.h \
     elevatedexecuteoperation.h \
     fakestopprocessforupdateoperation.h \
-    lazyplaintextedit.h \
     progresscoordinator.h \
     minimumprogressoperation.h \
     performinstallationform.h \
@@ -145,10 +146,19 @@ HEADERS += packagemanagercore.h \
     repositorycategory.h \
     componentselectionpage_p.h \
     commandlineparser.h \
-    commandlineparser_p.h
+    commandlineparser_p.h \
+    abstractarchive.h \
+    directoryguard.h \
+    lib7zarchive.h \
+    archivefactory.h
 
 SOURCES += packagemanagercore.cpp \
+    abstractarchive.cpp \
+    archivefactory.cpp \
     aspectratiolabel.cpp \
+    directoryguard.cpp \
+    lib7zarchive.cpp \
+    loggingutils.cpp \
     packagemanagercore_p.cpp \
     packagemanagergui.cpp \
     binaryformat.cpp \
@@ -180,7 +190,6 @@ SOURCES += packagemanagercore.cpp \
     init.cpp \
     elevatedexecuteoperation.cpp \
     fakestopprocessforupdateoperation.cpp \
-    lazyplaintextedit.cpp \
     progresscoordinator.cpp \
     minimumprogressoperation.cpp \
     performinstallationform.cpp \
@@ -244,6 +253,18 @@ RESOURCES += resources/installer.qrc
 unix {
     osx: SOURCES += adminauthorization_mac.cpp
     else: SOURCES += adminauthorization_x11.cpp
+}
+
+CONFIG(libarchive) {
+    HEADERS += libarchivearchive.h \
+        libarchivewrapper.h \
+        libarchivewrapper_p.h
+
+    SOURCES += libarchivearchive.cpp \
+        libarchivewrapper.cpp \
+        libarchivewrapper_p.cpp
+
+    LIBS += -llibarchive
 }
 
 LIBS += -l7z

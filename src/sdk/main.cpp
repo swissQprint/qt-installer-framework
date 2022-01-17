@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -37,6 +37,7 @@
 #include <selfrestarter.h>
 #include <remoteserver.h>
 #include <utils.h>
+#include <loggingutils.h>
 
 #include <QCommandLineParser>
 #include <QDateTime>
@@ -58,12 +59,12 @@ static const char PLACEHOLDER[32] = "MY_InstallerCreateDateTime_MY";
 
 int main(int argc, char *argv[])
 {
-#if defined(Q_OS_WIN)
     if (!qEnvironmentVariableIsSet("QT_AUTO_SCREEN_SCALE_FACTOR")
             && !qEnvironmentVariableIsSet("QT_SCALE_FACTOR")
             && !qEnvironmentVariableIsSet("QT_SCREEN_SCALE_FACTORS")) {
         QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     }
+#if defined(Q_OS_WIN)
     QCoreApplication::setAttribute(Qt::AA_DisableWindowContextHelpButton);
 #endif
     // increase maximum numbers of file descriptors
@@ -74,8 +75,6 @@ int main(int argc, char *argv[])
     rl.rlim_cur = qMin((rlim_t) OPEN_MAX, rl.rlim_max);
     setrlimit(RLIMIT_NOFILE, &rl);
 #endif
-
-    qsrand(QDateTime::currentDateTime().toTime_t());
 
     // We need to start either a command line application or a GUI application. Since we
     // fail doing so at least on Linux while parsing the argument using a core application
@@ -216,14 +215,14 @@ int main(int argc, char *argv[])
         foreach (QString value, optionNames) {
             if (value == CommandLineOptions::scVerboseShort
                     || value == CommandLineOptions::scVerboseLong) {
-                QInstaller::setVerbose(true);
+                QInstaller::LoggingHandler::instance().setVerbose(true);
             }
         }
 
         foreach (const QString &option, CommandLineOptions::scCommandLineInterfaceOptions) {
             bool setVerbose = parser.positionalArguments().contains(option);
             if (setVerbose) {
-                QInstaller::setVerbose(setVerbose);
+                QInstaller::LoggingHandler::instance().setVerbose(setVerbose);
                 break;
             }
         }
@@ -267,11 +266,14 @@ int main(int argc, char *argv[])
         } else if (parser.positionalArguments().contains(CommandLineOptions::scPurgeShort)
                 || parser.positionalArguments().contains(CommandLineOptions::scPurgeLong)){
             return CommandLineInterface(argc, argv).removeInstallation();
+        } else if (parser.positionalArguments().contains(CommandLineOptions::scCreateOfflineShort)
+                || parser.positionalArguments().contains(CommandLineOptions::scCreateOfflineLong)) {
+            return CommandLineInterface(argc, argv).createOfflineInstaller();
         } else if (parser.isSet(CommandLineOptions::scSqpPlotMachineTokenLong) ||
                    parser.isSet(CommandLineOptions::scSqpPlotMachineTokenShort)) {
             return CommandLineInterface(argc,argv).plotMachineToken();
         }
-        if (QInstaller::isVerbose()) {
+        if (QInstaller::LoggingHandler::instance().isVerbose()) {
             std::cout << VERSION << std::endl << BUILDDATE << std::endl << SHA << std::endl;
             std::cout << "SQP: " << SQP_IFW_VERSION_STRING  << std::endl;
         } else {

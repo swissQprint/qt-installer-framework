@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2018 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -49,6 +49,7 @@
 #include <QFileDialog>
 #include <QStackedLayout>
 #include <QStackedWidget>
+#include <QToolBox>
 
 namespace QInstaller {
 
@@ -66,19 +67,29 @@ ComponentSelectionPagePrivate::ComponentSelectionPagePrivate(ComponentSelectionP
         , m_updaterModel(m_core->updaterComponentModel())
         , m_currentModel(m_allModel)
         , m_allowCompressedRepositoryInstall(false)
+        , m_toolBox(nullptr)
+        , m_descriptionBaseWidget(nullptr)
         , m_categoryWidget(Q_NULLPTR)
+        , m_categoryLayoutVisible(false)
 {
     m_treeView->setObjectName(QLatin1String("ComponentsTreeView"));
 
-    QVBoxLayout *descriptionVLayout = new QVBoxLayout;
+    m_descriptionBaseWidget = new QWidget(q);
+    m_descriptionBaseWidget->setObjectName(QLatin1String("DescriptionBaseWidget"));
+
+    QVBoxLayout *descriptionVLayout = new QVBoxLayout(m_descriptionBaseWidget);
     descriptionVLayout->setObjectName(QLatin1String("DescriptionLayout"));
+    descriptionVLayout->setContentsMargins(0, 0, 0, 0);
+
+    m_toolBox = new QToolBox(q);
+    m_toolBox->setObjectName(QLatin1String("ToolBox"));
 
     QScrollArea *descriptionScrollArea = new QScrollArea(q);
     descriptionScrollArea->setWidgetResizable(true);
     descriptionScrollArea->setFrameShape(QFrame::NoFrame);
     descriptionScrollArea->setObjectName(QLatin1String("DescriptionScrollArea"));
 
-    m_descriptionLabel = new QLabel(q);
+    m_descriptionLabel = new QLabel(m_descriptionBaseWidget);
     m_descriptionLabel->setWordWrap(true);
     m_descriptionLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
     m_descriptionLabel->setOpenExternalLinks(true);
@@ -87,8 +98,7 @@ ComponentSelectionPagePrivate::ComponentSelectionPagePrivate(ComponentSelectionP
     descriptionScrollArea->setWidget(m_descriptionLabel);
     descriptionVLayout->addWidget(descriptionScrollArea);
 
-    m_sizeLabel = new QLabel(q);
-    m_sizeLabel->setMargin(5);
+    m_sizeLabel = new QLabel(m_descriptionBaseWidget);
     m_sizeLabel->setWordWrap(true);
     m_sizeLabel->setObjectName(QLatin1String("ComponentSizeLabel"));
     descriptionVLayout->addWidget(m_sizeLabel);
@@ -100,14 +110,17 @@ ComponentSelectionPagePrivate::ComponentSelectionPagePrivate(ComponentSelectionP
     if (m_core->isInstaller()) {
         m_checkDefault->setObjectName(QLatin1String("SelectDefaultComponentsButton"));
         m_checkDefault->setShortcut(QKeySequence(ComponentSelectionPage::tr("Alt+A",
-            "select default components")));
+            "Select default components")));
         m_checkDefault->setText(ComponentSelectionPage::tr("Def&ault"));
+        m_checkDefault->setToolTip(ComponentSelectionPage::tr("Select default components in the tree view."));
     } else {
         m_checkDefault->setEnabled(false);
         m_checkDefault->setObjectName(QLatin1String("ResetComponentsButton"));
         m_checkDefault->setShortcut(QKeySequence(ComponentSelectionPage::tr("Alt+R",
-            "reset to already installed components")));
+            "Reset to already installed components")));
         m_checkDefault->setText(ComponentSelectionPage::tr("&Reset"));
+        m_checkDefault->setToolTip(
+            ComponentSelectionPage::tr("Reset all components to their original selection state in the tree view."));
     }
     buttonHLayout->addWidget(m_checkDefault);
 
@@ -116,8 +129,9 @@ ComponentSelectionPagePrivate::ComponentSelectionPagePrivate(ComponentSelectionP
             this, &ComponentSelectionPagePrivate::selectAll);
     m_checkAll->setObjectName(QLatin1String("SelectAllComponentsButton"));
     m_checkAll->setShortcut(QKeySequence(ComponentSelectionPage::tr("Alt+S",
-        "select all components")));
+        "Select all components")));
     m_checkAll->setText(ComponentSelectionPage::tr("&Select All"));
+    m_checkAll->setToolTip(ComponentSelectionPage::tr("Select all components in the tree view."));
     buttonHLayout->addWidget(m_checkAll);
 
     m_uncheckAll = new QPushButton;
@@ -125,8 +139,9 @@ ComponentSelectionPagePrivate::ComponentSelectionPagePrivate(ComponentSelectionP
             this, &ComponentSelectionPagePrivate::deselectAll);
     m_uncheckAll->setObjectName(QLatin1String("DeselectAllComponentsButton"));
     m_uncheckAll->setShortcut(QKeySequence(ComponentSelectionPage::tr("Alt+D",
-        "deselect all components")));
+        "Deselect all components")));
     m_uncheckAll->setText(ComponentSelectionPage::tr("&Deselect All"));
+    m_uncheckAll->setToolTip(ComponentSelectionPage::tr("Deselect all components in the tree view."));
     buttonHLayout->addWidget(m_uncheckAll);
 
     QWidget *progressStackedWidget = new QWidget();
@@ -146,11 +161,11 @@ ComponentSelectionPagePrivate::ComponentSelectionPagePrivate(ComponentSelectionP
 
     QWidget *mainStackedWidget = new QWidget();
     m_mainGLayout = new QGridLayout(mainStackedWidget);
-    m_mainGLayout->addLayout(buttonHLayout, 0, 1);
-    m_mainGLayout->addLayout(treeViewVLayout, 1, 1);
-    m_mainGLayout->addLayout(descriptionVLayout, 1, 2);
-    m_mainGLayout->setColumnStretch(1, 3);
-    m_mainGLayout->setColumnStretch(2, 2);
+    m_mainGLayout->addLayout(buttonHLayout, 0, 0);
+    m_mainGLayout->addLayout(treeViewVLayout, 1, 0);
+    m_mainGLayout->addWidget(m_descriptionBaseWidget, 1, 1);
+    m_mainGLayout->setColumnStretch(0, 3);
+    m_mainGLayout->setColumnStretch(1, 2);
 
     m_stackedLayout = new QStackedLayout(q);
     m_stackedLayout->addWidget(mainStackedWidget);
@@ -193,6 +208,9 @@ void ComponentSelectionPagePrivate::showCompressedRepositoryButton()
         wizard->setOption(QWizard::HaveCustomButton2, true);
         wizard->setButtonText(QWizard::CustomButton2,
                 ComponentSelectionPage::tr("&Browse QBSP files"));
+        wizard->button(QWizard::CustomButton2)->setToolTip(
+                ComponentSelectionPage::tr("Select a Qt Board Support Package file to install "
+                "additional content that is not directly available from the online repositories."));
         connect(wizard, &QWizard::customButtonClicked,
                 this, &ComponentSelectionPagePrivate::customButtonClicked);
         q->gui()->updateButtonLayout();
@@ -219,11 +237,13 @@ void ComponentSelectionPagePrivate::setupCategoryLayout()
     vLayout->setContentsMargins(0, 0, 0, 0);
     m_categoryWidget->setLayout(vLayout);
     m_categoryGroupBox = new QGroupBox(q);
-    m_categoryGroupBox->setTitle(m_core->settings().repositoryCategoryDisplayName());
     m_categoryGroupBox->setObjectName(QLatin1String("CategoryGroupBox"));
     QVBoxLayout *categoryLayout = new QVBoxLayout(m_categoryGroupBox);
     QPushButton *fetchCategoryButton = new QPushButton(tr("Filter"));
     fetchCategoryButton->setObjectName(QLatin1String("FetchCategoryButton"));
+    fetchCategoryButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    fetchCategoryButton->setToolTip(
+        ComponentSelectionPage::tr("Filter the enabled repository categories"));
     connect(fetchCategoryButton, &QPushButton::clicked, this,
             &ComponentSelectionPagePrivate::fetchRepositoryCategories);
 
@@ -231,8 +251,6 @@ void ComponentSelectionPagePrivate::setupCategoryLayout()
         QCheckBox *checkBox = new QCheckBox;
         checkBox->setObjectName(repository.displayname());
         checkBox->setChecked(repository.isEnabled());
-        connect(checkBox, &QCheckBox::stateChanged, this,
-                &ComponentSelectionPagePrivate::checkboxStateChanged);
         checkBox->setText(repository.displayname());
         checkBox->setToolTip(repository.tooltip());
         categoryLayout->addWidget(checkBox);
@@ -241,16 +259,29 @@ void ComponentSelectionPagePrivate::setupCategoryLayout()
 
     vLayout->addWidget(m_categoryGroupBox);
     vLayout->addStretch();
-    m_mainGLayout->addWidget(m_categoryWidget, 1, 0);
+    m_toolBox->insertItem(1, m_categoryWidget, m_core->settings().repositoryCategoryDisplayName());
 }
 
 void ComponentSelectionPagePrivate::showCategoryLayout(bool show)
 {
+    if (!show && !m_categoryWidget)
+        return;
+
+    if (show == m_categoryLayoutVisible)
+        return;
+
+    setupCategoryLayout();
     if (show) {
-        setupCategoryLayout();
+        m_mainGLayout->removeWidget(m_descriptionBaseWidget);
+        m_toolBox->insertItem(0, m_descriptionBaseWidget, tr("Component Information"));
+        m_mainGLayout->addWidget(m_toolBox, 1, 1);
+    } else {
+        m_toolBox->removeItem(0);
+        m_mainGLayout->removeWidget(m_toolBox);
+        m_mainGLayout->addWidget(m_descriptionBaseWidget, 1, 1);
     }
-    if (m_categoryWidget)
-        m_categoryWidget->setVisible(show);
+    m_toolBox->setVisible(show);
+    m_categoryLayoutVisible = show;
 }
 
 void ComponentSelectionPagePrivate::updateTreeView()
@@ -266,7 +297,7 @@ void ComponentSelectionPagePrivate::updateTreeView()
     m_treeView->setExpanded(m_currentModel->index(0, 0), true);
     foreach (Component *component, m_core->components(PackageManagerCore::ComponentType::All)) {
         if (component->isExpandedByDefault()) {
-            const QModelIndex index = m_currentModel->indexFromComponentName(component->name());
+            const QModelIndex index = m_currentModel->indexFromComponentName(component->treeName());
             m_treeView->setExpanded(index, true);
         }
     }
@@ -323,10 +354,6 @@ void ComponentSelectionPagePrivate::currentSelectedChanged(const QModelIndex &cu
     QString description = m_currentModel->data(m_currentModel->index(current.row(),
         ComponentModelHelper::NameColumn, current.parent()), Qt::ToolTipRole).toString();
 
-    // replace {external-link}='' fields in component description with proper link tags
-    description.replace(QRegularExpression(QLatin1String("{external-link}='(.*?)'")),
-        QLatin1String("<a href=\"\\1\"><span style=\"color:#17a81a;\">\\1</span></a>"));
-
     m_descriptionLabel->setText(description);
 
     Component *component = m_currentModel->componentFromIndex(current);
@@ -348,18 +375,6 @@ void ComponentSelectionPagePrivate::selectAll()
 void ComponentSelectionPagePrivate::deselectAll()
 {
     m_currentModel->setCheckedState(ComponentModel::AllUnchecked);
-}
-
-void ComponentSelectionPagePrivate::checkboxStateChanged()
-{
-    QList<QCheckBox*> checkboxes = m_categoryGroupBox->findChildren<QCheckBox *>();
-    bool enableFetchButton = false;
-    foreach (QCheckBox *checkbox, checkboxes) {
-        if (checkbox->isChecked()) {
-            enableFetchButton = true;
-            break;
-        }
-    }
 }
 
 void ComponentSelectionPagePrivate::enableRepositoryCategory(const QString &repositoryName, bool enable)
@@ -403,10 +418,9 @@ void ComponentSelectionPagePrivate::fetchRepositoryCategories()
 {
     updateWidgetVisibility(true);
 
-    QCheckBox *checkbox;
     QList<QCheckBox*> checkboxes = m_categoryGroupBox->findChildren<QCheckBox *>();
     for (int i = 0; i < checkboxes.count(); i++) {
-        checkbox = checkboxes.at(i);
+        QCheckBox *checkbox = checkboxes.at(i);
         enableRepositoryCategory(checkbox->objectName(), checkbox->isChecked());
     }
 

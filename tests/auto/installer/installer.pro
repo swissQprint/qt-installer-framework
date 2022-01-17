@@ -1,6 +1,7 @@
 TEMPLATE = subdirs
 
 SUBDIRS += \
+    archivefactory \
     settings \
     repository \
     compareversion\
@@ -9,7 +10,7 @@ SUBDIRS += \
     fakestopprocessforupdateoperation \
     messageboxhandler \
     extractarchiveoperationtest \
-    lib7zfacade \
+    lib7zarchive \
     fileutils \
     unicodeexecutable \
     scriptengine \
@@ -35,7 +36,16 @@ SUBDIRS += \
     commandlineupdate \
     moveoperation \
     environmentvariableoperation \
-    licenseagreement
+    licenseagreement \
+    globalsettingsoperation \
+    elevatedexecuteoperation \
+    treename \
+    createoffline \
+    contentshaupdate
+
+CONFIG(libarchive) {
+    SUBDIRS += libarchivearchive
+}
 
 win32 {
     SUBDIRS += registerfiletypeoperation \

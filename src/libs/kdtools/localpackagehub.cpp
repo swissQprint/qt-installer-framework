@@ -1,7 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2013 Klaralvdalens Datakonsult AB (KDAB)
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -304,6 +304,7 @@ void LocalPackageHub::refresh()
     Marks the package specified by \a name as installed. Sets the values of
     \a version,
     \a title,
+    \a treeName,
     \a description,
     \a dependencies,
     \a autoDependencies,
@@ -317,6 +318,7 @@ void LocalPackageHub::refresh()
 void LocalPackageHub::addPackage(const QString &name,
                                  const QString &version,
                                  const QString &title,
+                                 const QString &treeName,
                                  const QString &description,
                                  const QStringList &dependencies,
                                  const QStringList &autoDependencies,
@@ -325,7 +327,8 @@ void LocalPackageHub::addPackage(const QString &name,
                                  quint64 uncompressedSize,
                                  const QString &inheritVersionFrom,
                                  bool checkable,
-                                 bool expandedByDefault)
+                                 bool expandedByDefault,
+                                 const QString &contentSha1)
 {
     // TODO: This somewhat unexpected, remove?
     if (d->m_packageInfoMap.contains(name)) {
@@ -339,6 +342,7 @@ void LocalPackageHub::addPackage(const QString &name,
         info.inheritVersionFrom = inheritVersionFrom;
         info.installDate = QDate::currentDate();
         info.title = title;
+        info.treeName = treeName;
         info.description = description;
         info.dependencies = dependencies;
         info.autoDependencies = autoDependencies;
@@ -347,6 +351,7 @@ void LocalPackageHub::addPackage(const QString &name,
         info.uncompressedSize = uncompressedSize;
         info.checkable = checkable;
         info.expandedByDefault = expandedByDefault;
+        info.contentSha1 = contentSha1;
         d->m_packageInfoMap.insert(name, info);
     }
     d->modified = true;
@@ -398,6 +403,7 @@ void LocalPackageHub::writeToDisk()
             addTextChildHelper(&package, QLatin1String("Name"), info.name);
             addTextChildHelper(&package, QLatin1String("Title"), info.title);
             addTextChildHelper(&package, QLatin1String("Description"), info.description);
+            addTextChildHelper(&package, scTreeName, info.treeName);
             if (info.inheritVersionFrom.isEmpty())
                 addTextChildHelper(&package, QLatin1String("Version"), info.version);
             else
@@ -422,6 +428,8 @@ void LocalPackageHub::writeToDisk()
                 addTextChildHelper(&package, QLatin1String("Checkable"), QLatin1String("true"));
             if (info.expandedByDefault)
                 addTextChildHelper(&package, QLatin1String("ExpandedByDefault"), QLatin1String("true"));
+            if (!info.contentSha1.isEmpty())
+                addTextChildHelper(&package, scContentSha1, info.contentSha1);
 
             root.appendChild(package);
         }
@@ -468,6 +476,8 @@ void LocalPackageHub::PackagesInfoData::addPackageFrom(const QDomElement &packag
             info.title = childNodeE.text();
         else if (childNodeE.tagName() == QLatin1String("Description"))
             info.description = childNodeE.text();
+        else if (childNodeE.tagName() == scTreeName)
+            info.treeName = childNodeE.text();
         else if (childNodeE.tagName() == QLatin1String("Version")) {
             info.version = childNodeE.text();
             info.inheritVersionFrom = childNodeE.attribute(QLatin1String("inheritVersionFrom"));
@@ -492,6 +502,8 @@ void LocalPackageHub::PackagesInfoData::addPackageFrom(const QDomElement &packag
             info.checkable = childNodeE.text().toLower() == QLatin1String("true") ? true : false;
         else if (childNodeE.tagName() == QLatin1String("ExpandedByDefault"))
             info.expandedByDefault = childNodeE.text().toLower() == QLatin1String("true") ? true : false;
+        else if (childNodeE.tagName() == QLatin1String("ContentSha1"))
+            info.contentSha1 = childNodeE.text();
     }
     m_packageInfoMap.insert(info.name, info);
 }

@@ -3,9 +3,9 @@
 }
 IFW_PRI_INCLUDED = 1
 
-IFW_VERSION_STR = 4.0.0
-IFW_VERSION = 0x040000
-IFW_VERSION_WIN32 = 4,0,0,0
+IFW_VERSION_STR = 4.2.0
+IFW_VERSION = 0x040200
+IFW_VERSION_WIN32 = 4,2,0,0
 
 IFW_VERSION_STR_WIN32 = $$IFW_VERSION_STR\0
 
@@ -92,9 +92,11 @@ macx:QMAKE_CXXFLAGS += -fvisibility=hidden -fvisibility-inlines-hidden
 INCLUDEPATH += \
     $$IFW_SOURCE_TREE/src/libs/7zip \
     $$IFW_SOURCE_TREE/src/libs/kdtools \
+    $$IFW_SOURCE_TREE/src/libs/ifwtools \
     $$IFW_SOURCE_TREE/src/libs/installer
 win32:INCLUDEPATH += $$IFW_SOURCE_TREE/src/libs/7zip/win/CPP
 unix:INCLUDEPATH += $$IFW_SOURCE_TREE/src/libs/7zip/unix/CPP
+CONFIG(libarchive): INCLUDEPATH += $$IFW_SOURCE_TREE/src/libs/3rdparty/libarchive
 
 LIBS += -L$$IFW_LIB_PATH
 # The order is important. The linker needs to parse archives in reversed dependency order.
@@ -143,8 +145,43 @@ DEFINES += IFW_REPOSITORY_FORMAT_VERSION=$$IFW_REPOSITORY_FORMAT_VERSION
 LIBS += -l7z
 win32-g++*: LIBS += -lmpr -luuid
 
+CONFIG(libarchive):equals(TEMPLATE, app) {
+    LIBS += -llibarchive
+    !isEmpty(IFW_ZLIB_LIBRARY) {
+        LIBS += $$IFW_ZLIB_LIBRARY
+    } else {
+        unix:LIBS += -lz
+        win32:LIBS += -lzlib
+    }
+    !isEmpty(IFW_BZIP2_LIBRARY) {
+        LIBS += $$IFW_BZIP2_LIBRARY
+    } else {
+        unix:LIBS += -lbz2
+        win32:LIBS += -llibbz2
+    }
+    !isEmpty(IFW_LZMA_LIBRARY) {
+        LIBS += $$IFW_LZMA_LIBRARY
+    } else {
+        unix:LIBS += -llzma
+        win32:LIBS += -lliblzma
+    }
+    macos {
+        !isEmpty(IFW_ICONV_LIBRARY) {
+            LIBS += $$IFW_ICONV_LIBRARY
+        } else {
+            LIBS += -liconv
+        }
+    }
+}
+
 equals(TEMPLATE, app) {
     msvc:POST_TARGETDEPS += $$IFW_LIB_PATH/installer.lib $$IFW_LIB_PATH/7z.lib
     win32-g++*:POST_TARGETDEPS += $$IFW_LIB_PATH/libinstaller.a $$IFW_LIB_PATH/lib7z.a
     unix:POST_TARGETDEPS += $$IFW_LIB_PATH/libinstaller.a $$IFW_LIB_PATH/lib7z.a
+
+    CONFIG(libarchive) {
+        msvc:POST_TARGETDEPS += $$IFW_LIB_PATH/libarchive.lib
+        win32-g++*:POST_TARGETDEPS += $$IFW_LIB_PATH/liblibarchive.a
+        unix:POST_TARGETDEPS += $$IFW_LIB_PATH/liblibarchive.a
+    }
 }

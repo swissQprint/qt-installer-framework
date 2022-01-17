@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -36,6 +36,7 @@
 #include "lib7z_list.h"
 #include "lib7z_guid.h"
 #include "globals.h"
+#include "directoryguard.h"
 
 #ifndef Q_OS_WIN
 #   include "StdAfx.h"
@@ -116,6 +117,42 @@ void registerCodecByteSwap();
 namespace Lib7z {
 
 /*!
+    \inmodule Lib7z
+    \class Lib7z::File
+    \internal
+*/
+
+/*!
+    \inmodule Lib7z
+    \class Lib7z::UpdateCallback
+    \internal
+*/
+
+/*!
+    \inmodule Lib7z
+    \class Lib7z::SevenZipException
+    \brief The SevenZipException provides a class for lib7z exceptions.
+*/
+
+/*!
+    \fn explicit Lib7z::SevenZipException::SevenZipException(const QString &msg)
+
+    Constructs an instance of SevenZipException with error message \a msg.
+*/
+
+/*!
+    \fn explicit Lib7z::SevenZipException::SevenZipException(const char *msg)
+
+    Constructs an instance of SevenZipException with error message \a msg.
+*/
+
+/*!
+    \inmodule Lib7z
+    \class Lib7z::PercentPrinter
+    \brief The PercentPrinter class displays the archiving process.
+*/
+
+/*!
     \fn void Lib7z::PercentPrinter::PrintRatio()
 
     Prints ratio.
@@ -151,16 +188,13 @@ namespace Lib7z {
     Prints string \a s.
 */
 
-/*!
-    \fn bool Lib7z::operator==(const File &lhs, const File &rhs);
-
-    Returns \c true if \a lhs and \a rhs are equal; otherwise returns \c false.
-*/
-
 // -- 7z init codecs, archives
 
 std::once_flag gOnceFlag;
 
+/*!
+    Initializes 7z and registers codecs and compression methods.
+*/
 void initSevenZ()
 {
     std::call_once(gOnceFlag, [] {
@@ -222,7 +256,7 @@ QString errorMessageFrom7zResult(const LONG  &extractResult)
     if (!lastError().isEmpty())
         return lastError();
 
-    QString errorMessage = QCoreApplication::translate("Lib7z", "internal code: %1");
+    QString errorMessage = QCoreApplication::translate("Lib7z", "Internal code: %1");
     switch (extractResult) {
         case S_OK:
             qFatal("S_OK value is not a valid error code.");
@@ -243,7 +277,7 @@ QString errorMessageFrom7zResult(const LONG  &extractResult)
             errorMessage = errorMessage.arg(QLatin1String("STG_E_INVALIDFUNCTION"));
         break;
         case E_OUTOFMEMORY:
-            errorMessage = QCoreApplication::translate("Lib7z", "not enough memory");
+            errorMessage = QCoreApplication::translate("Lib7z", "Not enough memory");
         break;
         case E_INVALIDARG:
             errorMessage = errorMessage.arg(QLatin1String("E_INVALIDARG"));
@@ -254,73 +288,6 @@ QString errorMessageFrom7zResult(const LONG  &extractResult)
     }
     return errorMessage;
 }
-
-/*
-    RAII class to create a directory (tryCreate()) and delete it on destruction unless released.
-*/
-struct DirectoryGuard
-{
-    explicit DirectoryGuard(const QString &path)
-        : m_path(path)
-        , m_created(false)
-        , m_released(false)
-    {
-        m_path.replace(QLatin1Char('\\'), QLatin1Char('/'));
-    }
-
-    ~DirectoryGuard()
-    {
-        if (!m_created || m_released)
-            return;
-        QDir dir(m_path);
-        if (!dir.rmdir(m_path))
-            qCWarning(QInstaller::lcInstallerInstallLog) << "Cannot delete directory " << m_path;
-    }
-
-    /*
-        Tries to create the directory structure.
-        Returns a list of every directory created.
-    */
-    QStringList tryCreate()
-    {
-        if (m_path.isEmpty())
-            return QStringList();
-
-        const QFileInfo fi(m_path);
-        if (fi.exists() && fi.isDir())
-            return QStringList();
-        if (fi.exists() && !fi.isDir()) {
-            throw SevenZipException(QCoreApplication::translate("DirectoryGuard",
-                "Path \"%1\" exists but is not a directory.").arg(QDir::toNativeSeparators(m_path)));
-        }
-        QStringList created;
-
-        QDir toCreate(m_path);
-        while (!toCreate.exists()) {
-            QString p = toCreate.absolutePath();
-            created.push_front(p);
-            p = p.section(QLatin1Char('/'), 0, -2);
-            toCreate = QDir(p);
-        }
-
-        QDir dir(m_path);
-        m_created = dir.mkpath(m_path);
-        if (!m_created) {
-            throw SevenZipException(QCoreApplication::translate("DirectoryGuard",
-                "Cannot create directory \"%1\".").arg(QDir::toNativeSeparators(m_path)));
-        }
-        return created;
-    }
-
-    void release()
-    {
-        m_released = true;
-    }
-
-    QString m_path;
-    bool m_created;
-    bool m_released;
-};
 
 static UString QString2UString(const QString &str)
 {
@@ -515,18 +482,9 @@ private:
     QPointer<QIODevice> m_device;
 };
 
-bool operator==(const File &lhs, const File &rhs)
-{
-    return lhs.path == rhs.path
-        && lhs.utcTime == rhs.utcTime
-        && lhs.isDirectory == rhs.isDirectory
-        && lhs.compressedSize == rhs.compressedSize
-        && lhs.uncompressedSize == rhs.uncompressedSize
-        && (lhs.permissions == rhs.permissions
-        || lhs.permissions == static_cast<QFile::Permissions>(-1)
-        || rhs.permissions == static_cast<QFile::Permissions>(-1));
-}
-
+/*!
+   Returns a list of files belonging to an \a archive.
+*/
 QVector<File> listArchive(QFileDevice *archive)
 {
     LIB7Z_ASSERTS(archive, Readable)
@@ -544,6 +502,8 @@ QVector<File> listArchive(QFileDevice *archive)
         op.types = &types;  // Empty, because we use a stream.
 
         CIntVector excluded;
+        excluded.Add(codecs.FindFormatForExtension(
+            QString2UString(QLatin1String("xz")))); // handled by libarchive
         op.excludedFormats = &excluded;
 
         const CMyComPtr<IInStream> stream = new QIODeviceInStream(archive);
@@ -578,7 +538,7 @@ QVector<File> listArchive(QFileDevice *archive)
                 f.archiveIndex.setY(item);
                 f.path = UString2QString(s).replace(QLatin1Char('\\'), QLatin1Char('/'));
                 Archive_IsItem_Folder(arch, item, f.isDirectory);
-                f.permissions = getPermissions(arch, item, nullptr);
+                f.permissions_enum = getPermissions(arch, item, nullptr);
                 getDateTimeProperty(arch, item, kpidMTime, &(f.utcTime));
                 f.uncompressedSize = getUInt64Property(arch, item, kpidSize, 0);
                 f.compressedSize = getUInt64Property(arch, item, kpidPackSize, 0);
@@ -600,15 +560,24 @@ QVector<File> listArchive(QFileDevice *archive)
     return QVector<File>(); // never reached
 }
 
+/*!
+    \inmodule Lib7z
+    \class Lib7z::ExtractCallback
+    \brief Provides a callback for archive extraction.
+*/
 
-// -- ExtractCallback
-
+/*!
+    \internal
+*/
 STDMETHODIMP ExtractCallback::SetTotal(UInt64 t)
 {
     total = t;
     return S_OK;
 }
 
+/*!
+    \internal
+*/
 STDMETHODIMP ExtractCallback::SetCompleted(const UInt64 *c)
 {
     completed = *c;
@@ -617,8 +586,12 @@ STDMETHODIMP ExtractCallback::SetCompleted(const UInt64 *c)
     return S_OK;
 }
 
-// this method will be called by CFolderOutStream::OpenFile to stream via
-// CDecoder::CodeSpec extracted content to an output stream.
+/*!
+    \internal
+
+    This method will be called by CFolderOutStream::OpenFile to stream via
+    CDecoder::CodeSpec extracted content to an output stream.
+*/
 STDMETHODIMP ExtractCallback::GetStream(UInt32 index, ISequentialOutStream **outStream, Int32 /*askExtractMode*/)
 {
     *outStream = nullptr;
@@ -637,7 +610,7 @@ STDMETHODIMP ExtractCallback::GetStream(UInt32 index, ISequentialOutStream **out
 
     const QFileInfo fi(QString::fromLatin1("%1/%2").arg(targetDir, UString2QString(s)));
 
-    DirectoryGuard guard(fi.absolutePath());
+    QInstaller::DirectoryGuard guard(fi.absolutePath());
     const QStringList directories = guard.tryCreate();
 
     bool isDir = false;
@@ -679,11 +652,17 @@ STDMETHODIMP ExtractCallback::GetStream(UInt32 index, ISequentialOutStream **out
     return S_OK;
 }
 
+/*!
+    \internal
+*/
 STDMETHODIMP ExtractCallback::PrepareOperation(Int32 /*askExtractMode*/)
 {
     return S_OK;
 }
 
+/*!
+    \internal
+*/
 STDMETHODIMP ExtractCallback::SetOperationResult(Int32 /*resultEOperationResult*/)
 {
     if (targetDir.isEmpty())
@@ -785,16 +764,15 @@ STDMETHODIMP ExtractCallback::SetOperationResult(Int32 /*resultEOperationResult*
 */
 
 /*!
-    \enum Lib7z::Compression
+    \typedef Lib7z::Compression
 
-    This enum specifies the compression ratio of an archive:
+    Synonym for QInstaller::CompressionLevel
+*/
 
-    \value  Non
-    \value  Fastest
-    \value  Fast
-    \value  Normal
-    \value  Maximum
-    \value  Ultra
+/*!
+    \typedef Lib7z::File
+
+    Synonym for QInstaller::ArchiveEntry
 */
 
 /*!
@@ -832,9 +810,26 @@ STDMETHODIMP ExtractCallback::SetOperationResult(Int32 /*resultEOperationResult*
 /*!
     \fn virtual Lib7z::ExtractCallback::setCompleted(quint64 completed, quint64 total)
 
-    Always returns \c true. \c completed and \c total are unused.
+    Always returns \c true.
 */
 
+/*!
+    \fn ULONG Lib7z::ExtractCallback::AddRef()
+
+    \internal
+*/
+
+/*!
+    \fn LONG Lib7z::ExtractCallback::QueryInterface(const GUID &iid, void **outObject)
+
+    \internal
+*/
+
+/*!
+    \fn ULONG Lib7z::ExtractCallback::Release()
+
+    \internal
+*/
 
 // -- UpdateCallback
 
@@ -1098,7 +1093,7 @@ void extractArchive(QFileDevice *archive, const QString &directory, ExtractCallb
         localCallback = callback;
     }
 
-    DirectoryGuard outDir(QFileInfo(directory).absolutePath());
+    QInstaller::DirectoryGuard outDir(QFileInfo(directory).absolutePath());
     try {
         outDir.tryCreate();
 
@@ -1113,6 +1108,8 @@ void extractArchive(QFileDevice *archive, const QString &directory, ExtractCallb
         op.types = &types;  // Empty, because we use a stream.
 
         CIntVector excluded;
+        excluded.Add(codecs.FindFormatForExtension(
+            QString2UString(QLatin1String("xz")))); // handled by libarchive
         op.excludedFormats = &excluded;
 
         const CMyComPtr<IInStream> stream = new QIODeviceInStream(archive);
@@ -1170,6 +1167,8 @@ bool isSupportedArchive(QFileDevice *archive)
         op.types = &types;  // Empty, because we use a stream.
 
         CIntVector excluded;
+        excluded.Add(codecs.FindFormatForExtension(
+            QString2UString(QLatin1String("xz")))); // handled by libarchive
         op.excludedFormats = &excluded;
 
         const CMyComPtr<IInStream> stream = new QIODeviceInStream(archive);

@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -62,6 +62,7 @@ class INSTALLER_EXPORT Component : public QObject, public ComponentModelHelper
     Q_PROPERTY(bool installed READ isInstalled)
     Q_PROPERTY(bool enabled READ isEnabled WRITE setEnabled)
     Q_PROPERTY(bool unstable READ isUnstable)
+    Q_PROPERTY(QString treeName READ treeName)
 
 public:
     explicit Component(PackageManagerCore *core);
@@ -121,10 +122,12 @@ public:
     void loadTranslations(const QDir &directory, const QStringList &qms);
     void loadUserInterfaces(const QDir &directory, const QStringList &uis);
     void loadLicenses(const QString &directory, const QHash<QString, QVariant> &hash);
+    void loadXMLOperations();
+    void loadXMLExtractOperations();
     void markAsPerformedInstallation();
 
     QStringList userInterfaces() const;
-    QHash<QString, QPair<QString, QString> > licenses() const;
+    QHash<QString, QVariantMap> licenses() const;
     Q_INVOKABLE QWidget *userInterface(const QString &name) const;
     Q_INVOKABLE virtual void beginInstallation();
     Q_INVOKABLE virtual void createOperations();
@@ -155,6 +158,7 @@ public:
 
     QString name() const;
     QString displayName() const;
+    QString treeName() const;
     quint64 updateUncompressedSize();
 
     QUrl repositoryUrl() const;
@@ -189,6 +193,7 @@ public:
     Q_INVOKABLE bool updateRequested();
 
     Q_INVOKABLE bool componentChangeRequested();
+    Q_INVOKABLE bool isForcedUpdate();
 
     bool isUnstable() const;
     void setUnstable(Component::UnstableError error, const QString &errorMessage = QString());
@@ -227,6 +232,9 @@ private:
 private:
     QString validatorCallbackName;
     ComponentPrivate *d;
+    QList<QPair<QString, QVariant>> m_operationsList;
+    QHash<QString, QString> m_archivesHash;
+    QString m_defaultArchivePath;
 };
 
 QDebug operator<<(QDebug dbg, Component *component);

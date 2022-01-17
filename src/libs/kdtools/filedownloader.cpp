@@ -31,6 +31,8 @@
 #include "ui_authenticationdialog.h"
 
 #include "fileutils.h"
+#include "utils.h"
+#include "loggingutils.h"
 
 #include <QDialog>
 #include <QDir>
@@ -190,6 +192,7 @@ struct KDUpdater::FileDownloader::Private
         : m_hash(QCryptographicHash::Sha1)
         , m_assumedSha1Sum("")
         , autoRemove(true)
+        , followRedirect(false)
         , m_speedTimerInterval(100)
         , m_downloadDeadlineTimerInterval(30000)
         , m_downloadPaused(false)
@@ -253,7 +256,6 @@ KDUpdater::FileDownloader::FileDownloader(const QString &scheme, QObject *parent
     , d(new Private)
 {
     d->scheme = scheme;
-    d->followRedirect = false;
 }
 
 /*!
@@ -730,6 +732,14 @@ void KDUpdater::FileDownloader::setIgnoreSslErrors(bool ignore)
     d->m_ignoreSslErrors = ignore;
 }
 
+/*!
+    Returns the number of received bytes.
+*/
+qint64 FileDownloader::getBytesReceived() const
+{
+    return d->m_bytesReceived;
+}
+
 // -- KDUpdater::LocalFileDownloader
 
 /*!
@@ -812,9 +822,9 @@ void KDUpdater::LocalFileDownloader::doDownload()
     QString localFile = this->url().toLocalFile();
     d->source = new QFile(localFile, this);
     if (!d->source->open(QFile::ReadOnly)) {
-        onError();
         setDownloadAborted(tr("Cannot open file \"%1\" for reading: %2").arg(QFileInfo(localFile)
-            .fileName(), d->source ? d->source->errorString() : tr("File not found")));
+            .fileName(), d->source->errorString()));
+        onError();
         return;
     }
 
@@ -828,9 +838,9 @@ void KDUpdater::LocalFileDownloader::doDownload()
     }
 
     if (!d->destination->isOpen()) {
-        onError();
         setDownloadAborted(tr("Cannot open file \"%1\" for writing: %2")
             .arg(QFileInfo(d->destination->fileName()).fileName(), d->destination->errorString()));
+        onError();
         return;
     }
 
@@ -901,10 +911,10 @@ void KDUpdater::LocalFileDownloader::timerEvent(QTimerEvent *event)
             if (numWritten < 0) {
                 killTimer(d->timerId);
                 d->timerId = -1;
-                onError();
                 setDownloadAborted(tr("Writing to file \"%1\" failed: %2").arg(
                                        QDir::toNativeSeparators(d->destination->fileName()),
                                        d->destination->errorString()));
+                onError();
                 return;
             }
             toWrite -= numWritten;
@@ -1089,11 +1099,11 @@ void KDUpdater::ResourceFileDownloader::timerEvent(QTimerEvent *event)
 {
     if (event->timerId() == d->timerId) {
         if (!d->destFile.isOpen()) {
-            onError();
             killTimer(d->timerId);
             emit downloadProgress(1);
             setDownloadAborted(tr("Cannot read resource file \"%1\": %2").arg(downloadedFileName(),
                 d->destFile.errorString()));
+            onError();
             return;
         }
 
@@ -1398,7 +1408,10 @@ void KDUpdater::HttpDownloader::httpReqFinished()
         if (d->http == 0)
             return;
         const QUrl url = d->http->url();
-        if (url.isValid() && QInstaller::lcServer().isDebugEnabled()){
+        // Only print host information when the logging category is enabled
+        // and output verbosity is set above standard level.
+        if (url.isValid() && QInstaller::lcServer().isDebugEnabled()
+                && LoggingHandler::instance().verboseLevel() == LoggingHandler::Detailed) {
             const QFileInfo fi(d->http->url().toString());
             if (fi.suffix() != QLatin1String("sha1")){
                 const QString hostName = url.host();

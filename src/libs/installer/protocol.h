@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -162,6 +162,31 @@ const char QAbstractFileEngineWrite[] = "QAbstractFileEngine::write";
 const char QAbstractFileEngineSyncToDisk[] = "QAbstractFileEngine::syncToDisk";
 const char QAbstractFileEngineRenameOverwrite[] = "QAbstractFileEngine::renameOverwrite";
 const char QAbstractFileEngineFileTime[] = "QAbstractFileEngine::fileTime";
+
+
+// LibArchiveWrapper
+const char AbstractArchive[] = "AbstractArchive";
+const char AbstractArchiveOpen[] = "AbstractArchive::open";
+const char AbstractArchiveClose[] = "AbstractArchive::close";
+const char AbstractArchiveSetFilename[] = "AbstractArchive::setFilename";
+const char AbstractArchiveErrorString[] = "AbstractArchive::errorString";
+const char AbstractArchiveExtract[] = "AbstractArchive::extract";
+const char AbstractArchiveCreate[] = "AbstractArchive::create";
+const char AbstractArchiveList[] = "AbstractArchive::list";
+const char AbstractArchiveIsSupported[] = "AbstractArchive::isSupported";
+const char AbstractArchiveSetCompressionLevel[] = "AbstractArchive::setCompressionLevel";
+const char AbstractArchiveAddDataBlock[] = "AbstractArchive::addDataBlock";
+const char AbstractArchiveSetClientDataAtEnd[] = "AbstractArchive::setClientDataAtEnd";
+const char AbstractArchiveSetFilePosition[] = "AbstractArchive::setFilePosition";
+const char AbstractArchiveWorkerStatus[] = "AbstractArchive::workerStatus";
+const char AbstractArchiveCancel[] = "AbstractArchive::cancel";
+
+const char GetAbstractArchiveSignals[] = "GetAbstractArchiveSignals";
+const char AbstractArchiveSignalCurrentEntryChanged[] = "AbstractArchive::currentEntryChanged";
+const char AbstractArchiveSignalCompletedChanged[] = "AbstractArchive::completedChanged";
+const char AbstractArchiveSignalDataBlockRequested[] = "AbstractArchive::dataBlockRequested";
+const char AbstractArchiveSignalSeekRequested[] = "AbstractArchive::seekRequested";
+const char AbstractArchiveSignalWorkerFinished[] = "AbstractArchive::workerFinished";
 
 } // namespace Protocol
 

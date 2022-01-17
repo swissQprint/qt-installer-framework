@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -37,6 +37,7 @@
 #include <QTextStream>
 #include <QSettings>
 #include <QtGlobal>
+#include <QRandomGenerator>
 
 #include "qsettingswrapper.h"
 
@@ -65,15 +66,22 @@ private:
         QCOMPARE(m_settings->value(m_shellAppkey).toString(), QString());
     }
 
+    void clearSettings()
+    {
+        m_settings->setValue(m_defaultKey, QString());
+        m_settings->setValue(m_openWithProgIdkey, QString());
+        m_settings->setValue(m_shellKey, QString());
+        m_settings->setValue(m_shellAppkey, QString());
+    }
+
 private slots:
     void initTestCase()
     {
         QInstaller::init();
         QString randomString = "";
         const QString possible = "abcdefghijklmnopqrstuvwxyz0123456789";
-        qsrand(QTime::currentTime().msec());
         for (int i = 0; i < 5; i++) {
-            int index = qrand() % possible.length();
+            int index = QRandomGenerator::global()->generate() % possible.length();
             QChar nextChar = possible.at(index);
             randomString.append(nextChar);
 
@@ -123,6 +131,22 @@ private slots:
         verifySettings();
         QVERIFY(op.undoOperation());
         verifySettingsCleaned();
+    }
+
+    void testRegisterFileTypeNoUndo()
+    {
+        RegisterFileTypeOperation op(&m_core);
+        op.setArguments(QStringList() << m_fileType << m_command << "test filetype" <<
+                                       "text/plain" << 0 << "ProgId="+m_progId << "UNDOOPERATION" << "");
+        QVERIFY(op.testOperation());
+        QVERIFY(op.performOperation());
+
+        verifySettings();
+        QVERIFY(op.undoOperation());
+        verifySettings();
+
+        //Clear so it does not pollute settings
+        clearSettings();
     }
 
     void testPerformingFromCLI()

@@ -23,7 +23,7 @@ instructions:
         maxTimeBetweenOutput: 120
         userMessageOnFailure: "Failed to change into tests directory."
       - type: ExecuteCommand
-        command: "{{.InstallDir}}/bin/qmake.exe INSTALL_PREFIX={{.InstallDir}} IFW_LIB_PATH={{.InstallDir}}/lib"
+        command: "{{.InstallDir}}/bin/qmake.exe CONFIG+=libarchive INSTALL_PREFIX={{.InstallDir}} IFW_LIB_PATH={{.InstallDir}}/lib"
         maxTimeInSeconds: 600
         maxTimeBetweenOutput: 600
         userMessageOnFailure: "Failed running qmake, check logs."
@@ -57,7 +57,7 @@ instructions:
         maxTimeBetweenOutput: 120
         userMessageOnFailure: "Failed to change into tests directory."
       - type: ExecuteCommand
-        command: "{{.InstallDir}}/bin/qmake INSTALL_PREFIX={{.InstallDir}} IFW_LIB_PATH={{.InstallDir}}/lib"
+        command: "{{.InstallDir}}/bin/qmake CONFIG+=libarchive INSTALL_PREFIX={{.InstallDir}} IFW_LIB_PATH={{.InstallDir}}/lib"
         maxTimeInSeconds: 600
         maxTimeBetweenOutput: 600
         userMessageOnFailure: "Failed running qmake, check logs."
@@ -86,7 +86,7 @@ instructions:
         maxTimeBetweenOutput: 120
         userMessageOnFailure: "Failed to change into tests directory."
       - type: ExecuteCommand
-        command: "c:{{.InstallDir}}\\bin\\qmake.exe INSTALL_PREFIX={{.InstallDir}} IFW_LIB_PATH={{.InstallDir}}/lib"
+        command: "c:{{.InstallDir}}\\bin\\qmake.exe CONFIG+=libarchive INSTALL_PREFIX={{.InstallDir}} IFW_LIB_PATH={{.InstallDir}}/lib"
         maxTimeInSeconds: 600
         maxTimeBetweenOutput: 600
         userMessageOnFailure: "Failed running qmake, check logs."
@@ -103,7 +103,7 @@ instructions:
       - type: RunQtUnitTest
         testRepetitionAllowance: 3
         directory: "{{.SourceDir}}/tests/auto"
-        runTestCommand: ["jom", "check"]
+        runTestCommand: ["jom", "check", "-j1"]
         maxTimeInSeconds: 3600
         maxTimeBetweenOutput: 600
         userMessageOnFailure: "Failed to run make check, check logs."

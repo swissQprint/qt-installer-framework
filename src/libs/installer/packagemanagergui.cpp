@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -41,6 +41,7 @@
 #include "productkeycheck.h"
 #include "repositorycategory.h"
 #include "componentselectionpage_p.h"
+#include "loggingutils.h"
 
 #include "sysinfo.h"
 #include "globals.h"
@@ -67,6 +68,7 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QSplitter>
 #include <QStringListModel>
 #include <QTextBrowser>
 
@@ -123,7 +125,7 @@ public:
         return m_widget;
     }
 
-    bool isComplete() const
+    bool isComplete() const Q_DECL_OVERRIDE
     {
         return m_widget->property("complete").toBool();
     }
@@ -300,8 +302,11 @@ PackageManagerGui::PackageManagerGui(PackageManagerCore *core, QWidget *parent)
 #ifndef Q_OS_MACOS
     setWindowIcon(QIcon(m_core->settings().installerWindowIcon()));
 #endif
-    if (!m_core->settings().wizardShowPageList())
-        setPixmap(QWizard::BackgroundPixmap, m_core->settings().background());
+    if (!m_core->settings().wizardShowPageList()) {
+        QString pixmapStr = m_core->settings().background();
+        QInstaller::replaceHighDpiImage(pixmapStr);
+        setPixmap(QWizard::BackgroundPixmap, pixmapStr);
+    }
 #ifdef Q_OS_LINUX
     setWizardStyle(QWizard::ModernStyle);
     setSizeGripEnabled(true);
@@ -316,7 +321,7 @@ PackageManagerGui::PackageManagerGui(PackageManagerCore *core, QWidget *parent)
         QFile sheet(styleSheetFile);
         if (sheet.exists()) {
             if (sheet.open(QIODevice::ReadOnly)) {
-                setStyleSheet(QString::fromLatin1(sheet.readAll()));
+                qApp->setStyleSheet(QString::fromLatin1(sheet.readAll()));
             } else {
                 qCWarning(QInstaller::lcDeveloperBuild) << "The specified style sheet file "
                     "can not be opened.";
@@ -347,8 +352,9 @@ PackageManagerGui::PackageManagerGui(PackageManagerCore *core, QWidget *parent)
 
         QVBoxLayout *sideWidgetLayout = new QVBoxLayout(sideWidget);
 
-        const QString pageListPixmap = m_core->settings().pageListPixmap();
+        QString pageListPixmap = m_core->settings().pageListPixmap();
         if (!pageListPixmap.isEmpty()) {
+            QInstaller::replaceHighDpiImage(pageListPixmap);
             QLabel *pageListPixmapLabel = new QLabel(sideWidget);
             pageListPixmapLabel->setObjectName(QLatin1String("PageListPixmapLabel"));
             pageListPixmapLabel->setPixmap(pageListPixmap);
@@ -420,7 +426,12 @@ PackageManagerGui::PackageManagerGui(PackageManagerCore *core, QWidget *parent)
 */
 void PackageManagerGui::setMaxSize()
 {
-    setMaximumSize(qApp->desktop()->availableGeometry(this).size());
+    QSize size = qApp->desktop()->availableGeometry(this).size();
+    int windowFrameHeight = frameGeometry().height() - geometry().height();
+    int availableHeight = size.height() - windowFrameHeight;
+
+    size.setHeight(availableHeight);
+    setMaximumSize(size);
 }
 
 /*!
@@ -467,7 +478,7 @@ void PackageManagerGui::updatePageListWidget()
             item->setFont(currentItemFont);
             // Current item should be always visible on the list
             m_pageListWidget->scrollToItem(item);
-        } else if (!visitedPages().contains(id)) {
+        } else if (id > d->m_currentId) {
             item->setFlags(item->flags() & ~Qt::ItemIsEnabled);
         }
     }
@@ -738,7 +749,16 @@ void PackageManagerGui::showEvent(QShowEvent *event)
                 }
             }
         }
-        setMinimumSize(size());
+        QSize minimumSize;
+        minimumSize.setWidth(m_core->settings().wizardMinimumWidth()
+            ? m_core->settings().wizardMinimumWidth()
+            : width());
+
+        minimumSize.setHeight(m_core->settings().wizardMinimumHeight()
+            ? m_core->settings().wizardMinimumHeight()
+            : height());
+
+        setMinimumSize(minimumSize);
         if (minimumWidth() < m_core->settings().wizardDefaultWidth())
             resize(m_core->settings().wizardDefaultWidth(), height());
         if (minimumHeight() < m_core->settings().wizardDefaultHeight())
@@ -925,7 +945,7 @@ void PackageManagerGui::cancelButtonClicked()
             interrupt = true;
             question = tr("Do you want to cancel the installation process?");
             if (m_core->isUninstaller())
-                question = tr("Do you want to cancel the uninstallation process?");
+                question = tr("Do you want to cancel the removal process?");
     } else {
         question = tr("Do you want to quit the installer application?");
         if (m_core->isUninstaller())
@@ -995,6 +1015,8 @@ void PackageManagerGui::showSettingsButton(bool show)
     d->m_showSettingsButton = show;
     setOption(QWizard::HaveCustomButton1, show);
     setButtonText(QWizard::CustomButton1, tr("Settings"));
+    button(QWizard::CustomButton1)->setToolTip(
+        PackageManagerGui::tr("Specify proxy settings and configure repositories for add-on components."));
 
     updateButtonLayout();
 }
@@ -1188,10 +1210,10 @@ PackageManagerPage::PackageManagerPage(PackageManagerCore *core)
         m_titleColor = m_core->settings().titleColor();
 
     if (!m_core->settings().wizardShowPageList())
-        setPixmap(QWizard::WatermarkPixmap, watermarkPixmap());
+        setPixmap(QWizard::WatermarkPixmap, wizardPixmap(scWatermark));
 
-    setPixmap(QWizard::BannerPixmap, bannerPixmap());
-    setPixmap(QWizard::LogoPixmap, logoPixmap());
+    setPixmap(QWizard::BannerPixmap, wizardPixmap(scBanner));
+    setPixmap(QWizard::LogoPixmap, wizardPixmap(scLogo));
 
     // Can't use PackageManagerPage::gui() here as the page is not set yet
     if (PackageManagerGui *gui = qobject_cast<PackageManagerGui *>(core->guiObject())) {
@@ -1209,39 +1231,26 @@ PackageManagerCore *PackageManagerPage::packageManagerCore() const
 }
 
 /*!
-    Returns the watermark pixmap specified in the \c <Watermark> element of the package information
-    file.
+    Returns the pixmap specified by \a pixmapType. \a pixmapType can be \c <Banner>,
+    \c <Logo> or \c <Watermark> element of the package information file. If @2x image
+    is provided, returns that instead for high DPI displays.
 */
-QPixmap PackageManagerPage::watermarkPixmap() const
+QPixmap PackageManagerPage::wizardPixmap(const QString &pixmapType) const
 {
-    return QPixmap(m_core->value(QLatin1String("WatermarkPixmap")));
-}
-
-/*!
-    Returns the banner pixmap specified in the \c <Banner> element of the package information file.
-    Only used by the modern UI style.
-*/
-QPixmap PackageManagerPage::bannerPixmap() const
-{
-    QPixmap banner(m_core->value(QLatin1String("BannerPixmap")));
-
-    if (!banner.isNull()) {
-        int width;
-        if (m_core->settings().containsValue(QLatin1String("WizardDefaultWidth")) )
-            width = m_core->settings().wizardDefaultWidth();
-        else
-            width = size().width();
-        banner = banner.scaledToWidth(width, Qt::SmoothTransformation);
+    QString pixmapStr = m_core->value(pixmapType);
+    QInstaller::replaceHighDpiImage(pixmapStr);
+    QPixmap pixmap(pixmapStr);
+    if (pixmapType == scBanner) {
+        if (!pixmap.isNull()) {
+            int width;
+            if (m_core->settings().containsValue(QLatin1String("WizardDefaultWidth")) )
+                width = m_core->settings().wizardDefaultWidth();
+            else
+                width = size().width();
+            pixmap = pixmap.scaledToWidth(width, Qt::SmoothTransformation);
+        }
     }
-    return banner;
-}
-
-/*!
-    Returns the logo pixmap specified in the \c <Logo> element of the package information file.
-*/
-QPixmap PackageManagerPage::logoPixmap() const
-{
-    return QPixmap(m_core->value(QLatin1String("LogoPixmap")));
+    return pixmap;
 }
 
 /*!
@@ -1536,9 +1545,6 @@ int IntroductionPage::nextId() const
     if (packageManagerCore()->isUninstaller())
         return PackageManagerCore::ReadyForInstallation;
 
-    if (packageManagerCore()->isMaintainer())
-        return PackageManagerCore::ComponentSelection;
-
     return PackageManagerPage::nextId();
 }
 
@@ -1615,6 +1621,10 @@ bool IntroductionPage::validatePage()
                         error = QLatin1String("<font color=\"red\">") + error + tr(" Only local package "
                             "management available.") + QLatin1String("</font>");
                     }
+                } else if (core->status() == PackageManagerCore::ForceUpdate) {
+                    // replaces the error string from packagemanagercore
+                    error = tr("There is an important update available. Please select '%1' first")
+                        .arg(m_updateComponents->text().remove(QLatin1Char('&')));
                 }
                 setErrorMessage(error);
             }
@@ -1763,6 +1773,8 @@ void IntroductionPage::setUpdater(bool value)
         gui()->showSettingsButton(true);
         packageManagerCore()->setUpdater();
         emit packageManagerCoreTypeChanged();
+
+        gui()->updatePageListWidget();
     }
 }
 
@@ -1773,6 +1785,8 @@ void IntroductionPage::setUninstaller(bool value)
         gui()->showSettingsButton(false);
         packageManagerCore()->setUninstaller();
         emit packageManagerCoreTypeChanged();
+
+        gui()->updatePageListWidget();
     }
 }
 
@@ -1783,6 +1797,8 @@ void IntroductionPage::setPackageManager(bool value)
         gui()->showSettingsButton(true);
         packageManagerCore()->setPackageManager();
         emit packageManagerCoreTypeChanged();
+
+        gui()->updatePageListWidget();
     }
 }
 /*!
@@ -1925,7 +1941,6 @@ LicenseAgreementPage::LicenseAgreementPage(PackageManagerCore *core)
 
     m_licenseListWidget = new QListWidget(this);
     m_licenseListWidget->setObjectName(QLatin1String("LicenseListWidget"));
-    m_licenseListWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     connect(m_licenseListWidget, &QListWidget::currentItemChanged,
         this, &LicenseAgreementPage::currentItemChanged);
 
@@ -1934,20 +1949,23 @@ LicenseAgreementPage::LicenseAgreementPage(PackageManagerCore *core)
     m_textBrowser->setOpenLinks(false);
     m_textBrowser->setOpenExternalLinks(true);
     m_textBrowser->setObjectName(QLatin1String("LicenseTextBrowser"));
-    m_textBrowser->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     connect(m_textBrowser, &QTextBrowser::anchorClicked, this, &LicenseAgreementPage::openLicenseUrl);
 
-    QVBoxLayout *licenseBoxLayout = new QVBoxLayout();
-    licenseBoxLayout->addWidget(m_licenseListWidget);
-    licenseBoxLayout->addWidget(m_textBrowser);
+    QSplitter *licenseSplitter = new QSplitter(this);
+    licenseSplitter->setOrientation(Qt::Vertical);
+    licenseSplitter->setChildrenCollapsible(false);
+    licenseSplitter->addWidget(m_licenseListWidget);
+    licenseSplitter->addWidget(m_textBrowser);
+    licenseSplitter->setStretchFactor(0, 1);
+    licenseSplitter->setStretchFactor(1, 3);
 
     QVBoxLayout *layout = new QVBoxLayout(this);
-    layout->addLayout(licenseBoxLayout);
+    layout->addWidget(licenseSplitter);
 
-    m_acceptRadioButton = new QRadioButton(this);
-    m_acceptRadioButton->setShortcut(QKeySequence(tr("Alt+A", "agree license")));
-    m_acceptRadioButton->setObjectName(QLatin1String("AcceptLicenseRadioButton"));
-    ClickForwarder *acceptClickForwarder = new ClickForwarder(m_acceptRadioButton);
+    m_acceptCheckBox = new QCheckBox(this);
+    m_acceptCheckBox->setShortcut(QKeySequence(tr("Alt+A", "Agree license")));
+    m_acceptCheckBox->setObjectName(QLatin1String("AcceptLicenseCheckBox"));
+    ClickForwarder *acceptClickForwarder = new ClickForwarder(m_acceptCheckBox);
 
     m_acceptLabel = new QLabel;
     m_acceptLabel->setWordWrap(true);
@@ -1955,29 +1973,13 @@ LicenseAgreementPage::LicenseAgreementPage(PackageManagerCore *core)
     m_acceptLabel->setObjectName(QLatin1String("AcceptLicenseLabel"));
     m_acceptLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
 
-    m_rejectRadioButton = new QRadioButton(this);
-    ClickForwarder *rejectClickForwarder = new ClickForwarder(m_rejectRadioButton);
-    m_rejectRadioButton->setObjectName(QString::fromUtf8("RejectLicenseRadioButton"));
-    m_rejectRadioButton->setShortcut(QKeySequence(tr("Alt+D", "do not agree license")));
-
-    m_rejectLabel = new QLabel;
-    m_rejectLabel->setWordWrap(true);
-    m_rejectLabel->installEventFilter(rejectClickForwarder);
-    m_rejectLabel->setObjectName(QLatin1String("RejectLicenseLabel"));
-    m_rejectLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
-
     QGridLayout *gridLayout = new QGridLayout;
     gridLayout->setColumnStretch(1, 1);
-    gridLayout->addWidget(m_acceptRadioButton, 0, 0);
+    gridLayout->addWidget(m_acceptCheckBox, 0, 0);
     gridLayout->addWidget(m_acceptLabel, 0, 1);
-    gridLayout->addWidget(m_rejectRadioButton, 1, 0);
-    gridLayout->addWidget(m_rejectLabel, 1, 1);
     layout->addLayout(gridLayout);
 
-    connect(m_acceptRadioButton, &QAbstractButton::toggled, this, &QWizardPage::completeChanged);
-    connect(m_rejectRadioButton, &QAbstractButton::toggled, this, &QWizardPage::completeChanged);
-
-    m_rejectRadioButton->setChecked(true);
+    connect(m_acceptCheckBox, &QAbstractButton::toggled, this, &QWizardPage::completeChanged);
 }
 
 /*!
@@ -1992,13 +1994,17 @@ void LicenseAgreementPage::entering()
 
     packageManagerCore()->calculateComponentsToInstall();
     foreach (QInstaller::Component *component, packageManagerCore()->orderedComponentsToInstall())
-        addLicenseItem(component->licenses());
+        packageManagerCore()->addLicenseItem(component->licenses());
+
+    createLicenseWidgets();
 
     const int licenseCount = m_licenseListWidget->count();
     if (licenseCount > 0) {
         m_licenseListWidget->setVisible(licenseCount > 1);
         m_licenseListWidget->setCurrentItem(m_licenseListWidget->item(0));
     }
+
+    packageManagerCore()->clearLicenses();
 
     updateUi();
 }
@@ -2009,7 +2015,7 @@ void LicenseAgreementPage::entering()
 */
 bool LicenseAgreementPage::isComplete() const
 {
-    return m_acceptRadioButton->isChecked();
+    return m_acceptCheckBox->isChecked();
 }
 
 void LicenseAgreementPage::openLicenseUrl(const QUrl &url)
@@ -2023,12 +2029,22 @@ void LicenseAgreementPage::currentItemChanged(QListWidgetItem *current)
         m_textBrowser->setText(current->data(Qt::UserRole).toString());
 }
 
-void LicenseAgreementPage::addLicenseItem(const QHash<QString, QPair<QString, QString> > &hash)
+void LicenseAgreementPage::createLicenseWidgets()
 {
-    for (QHash<QString, QPair<QString, QString> >::const_iterator it = hash.begin();
-        it != hash.end(); ++it) {
-            QListWidgetItem *item = new QListWidgetItem(it.key(), m_licenseListWidget);
-            item->setData(Qt::UserRole, it.value().second);
+    QHash<QString, QMap<QString, QString>> priorityHash = packageManagerCore()->sortedLicenses();
+
+    QStringList priorities = priorityHash.keys();
+    priorities.sort();
+
+    for (int i = priorities.length() - 1; i >= 0; --i) {
+        QString priority = priorities.at(i);
+        QMap<QString, QString> licenses = priorityHash.value(priority);
+        QStringList licenseNames = licenses.keys();
+        licenseNames.sort(Qt::CaseInsensitive);
+        for (QString licenseName : licenseNames) {
+            QListWidgetItem *item = new QListWidgetItem(licenseName, m_licenseListWidget);
+            item->setData(Qt::UserRole, licenses.value(licenseName));
+        }
     }
 }
 
@@ -2036,23 +2052,19 @@ void LicenseAgreementPage::updateUi()
 {
     QString subTitleText;
     QString acceptButtonText;
-    QString rejectButtonText;
     if (m_licenseListWidget->count() == 1) {
         subTitleText = tr("Please read the following license agreement. You must accept the terms "
                           "contained in this agreement before continuing with the installation.");
         acceptButtonText = tr("I accept the license.");
-        rejectButtonText = tr("I do not accept the license.");
     } else {
         subTitleText = tr("Please read the following license agreements. You must accept the terms "
                           "contained in these agreements before continuing with the installation.");
         acceptButtonText = tr("I accept the licenses.");
-        rejectButtonText = tr("I do not accept the licenses.");
     }
     m_licenseListWidget->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
     setColoredSubTitle(subTitleText);
 
     m_acceptLabel->setText(acceptButtonText);
-    m_rejectLabel->setText(rejectButtonText);
 
 }
 
@@ -2233,15 +2245,16 @@ bool ComponentSelectionPage::isComplete() const
 {
     if (packageManagerCore()->isInstaller() || packageManagerCore()->isUpdater())
         return d->m_currentModel->checked().count();
-    // In addition to the checkState of the model, we'd like to know if some
-    // packages are declared to be installed or uninstalled. In this cases,
-    // the page is also complete -> next button is active. Otherwise its disabled
-    // for new packages with forcedInstallation = true
-    auto toInstall = d->m_currentModel->toInstall();
-    auto toUninstall = d->m_currentModel->toUninstall();
-    return !toInstall.isEmpty() ||
-           !toUninstall.isEmpty() ||
-            d->m_currentModel->checkedState().testFlag(ComponentModel::DefaultChecked) == false;
+
+    if (d->m_currentModel->checkedState().testFlag(ComponentModel::DefaultChecked) == false)
+        return true;
+
+    const QSet<Component *> uncheckable = d->m_currentModel->uncheckable();
+    for (auto &component : uncheckable) {
+        if (component->forcedInstallation() && !component->isInstalled())
+            return true; // allow installation for new forced components
+    }
+    return false;
 }
 
 
@@ -2303,8 +2316,9 @@ TargetDirectoryPage::TargetDirectoryPage(PackageManagerCore *core)
     QPushButton *browseButton = new QPushButton(this);
     browseButton->setObjectName(QLatin1String("BrowseDirectoryButton"));
     connect(browseButton, &QAbstractButton::clicked, this, &TargetDirectoryPage::dirRequested);
-    browseButton->setShortcut(QKeySequence(tr("Alt+R", "browse file system to choose a file")));
+    browseButton->setShortcut(QKeySequence(tr("Alt+R", "Browse file system to choose a file")));
     browseButton->setText(tr("B&rowse..."));
+    browseButton->setToolTip(TargetDirectoryPage::tr("Browse file system to choose the installation directory."));
     hlayout->addWidget(browseButton);
 
     layout->addLayout(hlayout);
@@ -2589,7 +2603,7 @@ void ReadyForInstallationPage::entering()
     QString htmlOutput;
     bool componentsOk = packageManagerCore()->calculateComponents(&htmlOutput);
     m_taskDetailsBrowser->setHtml(htmlOutput);
-    m_taskDetailsBrowser->setVisible(!componentsOk || isVerbose());
+    m_taskDetailsBrowser->setVisible(!componentsOk || LoggingHandler::instance().isVerbose());
     setComplete(componentsOk);
 
     QString spaceInfo;
@@ -2730,7 +2744,7 @@ void PerformInstallationPage::entering()
     if (packageManagerCore()->settings().productImages().count() > 1)
         m_imageChangeTimer.start();
 
-    if (isVerbose()) {
+    if (LoggingHandler::instance().isVerbose()) {
         m_performInstallationForm->toggleDetails();
     }
     if (packageManagerCore()->isUninstaller()) {
@@ -2817,7 +2831,6 @@ void PerformInstallationPage::installationFinished()
 {
     m_performInstallationForm->stopUpdateProgress();
     if (!isAutoSwitching()) {
-        m_performInstallationForm->scrollDetailsToTheEnd();
         m_performInstallationForm->setDetailsButtonEnabled(false);
 
         setComplete(true);

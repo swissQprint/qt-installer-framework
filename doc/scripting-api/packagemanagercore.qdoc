@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -33,11 +33,12 @@
 */
 
 /*!
-    \qmlmethod array installer::components()
+    \qmlmethod array installer::components(string regexp)
 
     Returns an array of all components currently available.
     If the repository metadata have not been fetched yet,
-    the array will be empty.
+    the array will be empty. Optionally, a \a regexp expression
+    can be used to further filter the listed packages.
 
     \sa component, finishAllComponentsReset(), finishUpdaterComponentsReset()
 */
@@ -69,7 +70,7 @@
 /*!
     \qmlsignal installer::componentAdded(Component component)
 
-    Emitted when a new root component is added.
+    Emitted when a new root \a component is added.
 
     \sa rootComponentsAdded(), updaterComponentsAdded()
 */
@@ -77,7 +78,7 @@
 /*!
     \qmlsignal installer::rootComponentsAdded(list<Component> components)
 
-    Emitted when a new list of root components is added.
+    Emitted when a new list of root \a components is added.
 
     \sa componentAdded(), updaterComponentsAdded()
 */
@@ -85,7 +86,7 @@
 /*!
     \qmlsignal installer::updaterComponentsAdded(list<Component> components)
 
-    Emitted when a new list of updater components is added.
+    Emitted when a new list of updater \a components is added.
 
     \sa componentAdded(), rootComponentsAdded()
 */
@@ -93,7 +94,7 @@
 /*!
     \qmlsignal installer::valueChanged(string key, string value)
 
-    Emitted when a value changes.
+    Emitted when a \a value for \a key changes.
 
     \sa setValue()
 */
@@ -101,13 +102,13 @@
 /*!
     \qmlsignal installer::statusChanged(Status status)
 
-    Emitted when the installer status changes.
+    Emitted when the installer \a status changes.
 */
 
 /*!
     \qmlsignal installer::currentPageChanged(int page)
 
-    Emitted when the current page changes.
+    Emitted when the current \a page changes.
 */
 
 /*!
@@ -119,21 +120,21 @@
 /*!
     \qmlsignal installer::metaJobProgress(int progress)
 
-    Triggered with progress updates of the communication with a remote
+    Triggered with \a progress updates of the communication with a remote
     repository. Progress ranges from 0 to 100.
 */
 
 /*!
     \qmlsignal installer::metaJobTotalProgress(int progress)
 
-    Triggered when total progress value of the communication with a
+    Triggered when total \a progress value of the communication with a
     remote repository changes.
 */
 
 /*!
     \qmlsignal installer::metaJobInfoMessage(string message)
 
-    Triggered with informative updates of the communication with a remote repository.
+    Triggered with informative updates, \a message, of the communication with a remote repository.
 */
 
 /*!
@@ -147,7 +148,7 @@
 /*!
     \qmlsignal installer::finishAllComponentsReset(list<Component> rootComponents)
 
-    Triggered when the list of new root components has been updated.
+    Triggered when the list of new root components \a rootComponents has been updated.
 
     \sa startAllComponentsReset()
 */
@@ -161,7 +162,7 @@
 /*!
     \qmlsignal installer::finishUpdaterComponentsReset(list<Component> componentsWithUpdates)
 
-    Triggered when the list of available remote updates has been updated.
+    Triggered when the list of available remote updates \a componentsWithUpdates has been updated.
 */
 
 /*!
@@ -211,6 +212,22 @@
 */
 
 /*!
+    \qmlsignal installer::offlineGenerationStarted()
+
+    Triggered when offline installer generation has started.
+
+    \sa offlineGenerationFinished()
+*/
+
+/*!
+    \qmlsignal installer::offlineGenerationFinished
+
+    Triggered when offline installer generation has finished.
+
+    \sa offlineGenerationStarted()
+*/
+
+/*!
     \qmlsignal installer::titleMessageChanged(string title)
 
     Emitted when the text of the installer status (on the PerformInstallation page) changes to
@@ -255,7 +272,9 @@
     \qmlsignal installer::setValidatorForCustomPageRequested(Component component, string name,
                                         string callbackName)
 
-    Triggered when setValidatorForCustomPage is called.
+    Requests that a validator be set for the custom page specified by \a name and
+    \a callbackName for the component \a component. Triggered when
+    setValidatorForCustomPage() is called.
 */
 
 /*!
@@ -389,7 +408,7 @@
 /*!
     \qmlmethod boolean installer::isFileExtensionRegistered(string extension)
 
-    Returns whether a file extension is already registered in the Windows registry. Returns \c false
+    Returns whether a file \a extension is already registered in the Windows registry. Returns \c false
     on all other platforms.
 */
 
@@ -416,6 +435,27 @@
 
     \note This function can only be called when installing from a command line
     instance without GUI.
+*/
+
+/*!
+    \qmlmethod string installer::toNativeSeparators(string path)
+
+    Returns \a path with the '/' separators converted to separators that are
+    appropriate for the underlying operating system.
+
+    On Unix platforms the returned string is the same as the argument.
+
+    \sa fromNativeSeparators()
+*/
+
+/*!
+    \qmlmethod string installer::fromNativeSeparators(string path)
+
+    Returns \a path using '/' as file separator.
+
+    On Unix platforms the returned string is the same as the argument.
+
+    \sa toNativeSeparators()
 */
 
 /*!
@@ -467,6 +507,9 @@
     \qmlmethod void installer::setValidatorForCustomPage(Component component, string name,
                                                          string callbackName)
 
+    Sets a validator for the custom page specified by \a name and \a callbackName
+    for the component \a component.
+
     \sa setValidatorForCustomPageRequested()
 */
 
@@ -504,7 +547,8 @@
 /*!
     \qmlmethod void installer::setTemporaryRepositories(stringlist repositories, boolean replace)
 
-    Sets additional \a repositories for this instance of the installer or updater.
+    Sets additional \a repositories for this instance of the installer or updater. If \a replace
+    is \c true, existing repositories will be replaced.
     Will be removed after invoking it again.
 
     \sa addUserRepositories()
@@ -596,13 +640,13 @@
 
 /*!
     \qmlmethod array installer::execute(string program, stringlist arguments = undefined,
-                                        string stdin = "", string stdinCodec = "latin1",
-                                        string stdoutCodec = "latin1")
+                                        string stdIn = "", string stdInCodec = "latin1",
+                                        string stdOutCodec = "latin1")
 
     Starts the program \a program with the arguments \a arguments in a
     new process and waits for it to finish.
 
-    \a stdin is sent as standard input to the application.
+    \a stdIn is sent as standard input to the application.
 
     \a stdInCodec is the name of the codec to use for converting the input string
     into bytes to write to the standard input of the application.
@@ -687,7 +731,7 @@
     \qmlmethod void installer::setInstallerBaseBinary(string path)
 
     Sets the \c installerbase binary to use when writing the maintenance tool.
-    Set the path if an update to the binary is available.
+    Set the \a path if an update to the binary is available.
 
     If not set, the executable segment of the running installer or uninstaller
     will be used.
@@ -709,6 +753,13 @@
     returned. Additionally, on Windows, \a key can be a registry key.
 
     \sa value
+*/
+
+/*!
+    \qmlmethod string installer::key(string value)
+
+    Returns the installer key for \a value. If \a value is not known, empty string is
+    returned.
 */
 
 /*!
@@ -832,6 +883,18 @@
 */
 
 /*!
+    \qmlmethod boolean installer::isOfflineGenerator()
+
+    Returns \c true if the application is executed in offline generation mode.
+*/
+
+/*!
+    \qmlmethod boolean installer::isPackageViewer()
+
+    Returns \c true if the current installer is executed as package viewer.
+*/
+
+/*!
     \qmlmethod boolean installer::isUserSetBinaryMarker()
 
     Returns \c true if the magic binary marker has been set by user.
@@ -865,6 +928,12 @@
     \qmlmethod boolean installer::runPackageUpdater()
 
     Runs the package updater. Returns \c true on success, \c false otherwise.
+*/
+
+/*!
+    \qmlmethod boolean installer::runOfflineGenerator()
+
+    Runs the offline generator. Returns \c true on success, \c false otherwise.
 */
 
 /*!

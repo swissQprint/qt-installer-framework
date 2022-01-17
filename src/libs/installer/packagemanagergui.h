@@ -152,10 +152,8 @@ public:
     explicit PackageManagerPage(PackageManagerCore *core);
     virtual ~PackageManagerPage() {}
 
-    virtual QPixmap logoPixmap() const;
     virtual QString productName() const;
-    virtual QPixmap watermarkPixmap() const;
-    virtual QPixmap bannerPixmap() const;
+    virtual QPixmap wizardPixmap(const QString &pixmapType) const;
 
     void setColoredTitle(const QString &title);
     void setColoredSubTitle(const QString &subTitle);
@@ -296,18 +294,15 @@ private Q_SLOTS:
     void currentItemChanged(QListWidgetItem *current);
 
 private:
-    void addLicenseItem(const QHash<QString, QPair<QString, QString> > &hash);
+    void createLicenseWidgets();
     void updateUi();
 
 private:
     QTextBrowser *m_textBrowser;
     QListWidget *m_licenseListWidget;
 
-    QRadioButton *m_acceptRadioButton;
-    QRadioButton *m_rejectRadioButton;
-
+    QCheckBox *m_acceptCheckBox;
     QLabel *m_acceptLabel;
-    QLabel *m_rejectLabel;
 };
 
 

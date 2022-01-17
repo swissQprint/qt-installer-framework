@@ -1,6 +1,6 @@
 /**************************************************************************
 **
-** Copyright (C) 2020 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -63,7 +63,7 @@ public:
         : m_engine(engine), m_core(core) {}
 
 public slots:
-    QJSValue components() const;
+    QJSValue components(const QString &regexp = QString()) const;
     QJSValue componentByName(const QString &componentName);
 
 private:
@@ -125,24 +125,6 @@ private:
     ScriptEngine *m_engine;
 };
 
-#if QT_VERSION < 0x050400
-class QCoreApplicationProxy : public QObject
-{
-    Q_OBJECT
-    Q_DISABLE_COPY(QCoreApplicationProxy)
-
-public:
-    QCoreApplicationProxy() {}
-
-public slots:
-    QString qsTr(const QString &text = QString(), const QString &disambiguation = QString(), int n = -1) const
-    {
-        return QCoreApplication::translate(QCoreApplication::applicationName().toUtf8().constData(),
-            text.toUtf8().constData(), disambiguation.toUtf8().constData(), n);
-    }
-};
-#endif
-
 class GuiProxy : public QObject
 {
     Q_OBJECT
@@ -198,8 +180,5 @@ Q_DECLARE_METATYPE(QInstaller::ConsoleProxy*)
 Q_DECLARE_METATYPE(QInstaller::InstallerProxy*)
 Q_DECLARE_METATYPE(QInstaller::QFileDialogProxy*)
 Q_DECLARE_METATYPE(QInstaller::QDesktopServicesProxy*)
-#if QT_VERSION < 0x050400
-Q_DECLARE_METATYPE(QInstaller::QCoreApplicationProxy*)
-#endif
 
 #endif // SCRIPTENGINE_H

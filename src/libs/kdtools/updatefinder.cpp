@@ -1,7 +1,7 @@
 /****************************************************************************
 **
 ** Copyright (C) 2013 Klaralvdalens Datakonsult AB (KDAB)
-** Copyright (C) 2019 The Qt Company Ltd.
+** Copyright (C) 2021 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Installer Framework.
@@ -67,8 +67,9 @@ public:
         RemoveExisting
     };
 
-    Private(UpdateFinder *qq)
+    explicit Private(UpdateFinder *qq)
         : q(qq)
+        , cancel(false)
         , downloadCompleteCount(0)
         , m_downloadsToComplete(0)
     {}
@@ -81,7 +82,7 @@ public:
     struct Data {
         Data()
             : downloader(0) {}
-        Data(const PackageSource &i, FileDownloader *d = 0)
+        explicit Data(const PackageSource &i, FileDownloader *d = 0)
             : info(i), downloader(d) {}
 
         PackageSource info;
@@ -169,8 +170,8 @@ void UpdateFinder::Private::computeUpdates()
     // 1. Downloading Update XML files from all the update sources
     // 2. Matching updates with Package XML and figuring out available updates
 
-    if (!q->isCompressedPackage())
-        clear();
+
+    clear();
     cancel = false;
 
     // First do some quick sanity checks on the packages info
@@ -396,8 +397,7 @@ void UpdateFinder::Private::createUpdateObjects(const PackageSource &source,
             delete updates.take(name);
 
         // Create and register the update
-        if (!q->isCompressedPackage() || value == Resolution::AddPackage)
-            updates.insert(name, new Update(source, info));
+        updates.insert(name, new Update(source, info));
     }
 }
 
@@ -437,10 +437,6 @@ UpdateFinder::Private::Resolution UpdateFinder::Private::checkPriorityAndVersion
                 << ", Source: " << QFileInfo(source.url.toLocalFile()).fileName() << "'";
             return Resolution::RemoveExisting;
         }
-        if (q->isCompressedPackage() && match == 0 && source.priority == existingPackage->packageSource().priority) {
-            //Same package with the same priority and version already exists
-            return Resolution::RemoveExisting;
-        }
         return Resolution::KeepExisting; // otherwise keep existing
     }
     return Resolution::AddPackage;
@@ -455,7 +451,6 @@ UpdateFinder::Private::Resolution UpdateFinder::Private::checkPriorityAndVersion
 */
 UpdateFinder::UpdateFinder()
     : Task(QLatin1String("UpdateFinder"), Stoppable),
-      m_compressedPackage(false),
       d(new Private(this))
 {
 }
@@ -476,6 +471,9 @@ QList<Update *> UpdateFinder::updates() const
     return d->updates.values();
 }
 
+/*!
+    Sets the information about installed local packages \a hub.
+*/
 void UpdateFinder::setLocalPackageHub(std::weak_ptr<LocalPackageHub> hub)
 {
     d->m_localPackageHub = std::move(hub);

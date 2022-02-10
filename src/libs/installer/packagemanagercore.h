@@ -414,7 +414,7 @@ private:
     PackageManagerCorePrivate *const d;
     friend class PackageManagerCorePrivate;
     QHash<QString, QString> m_fileDialogAutomaticAnswers;
-    QString m_updateTrigger;
+    QString m_updateTrigger{QStringLiteral("manual")};
 
 private:
     // remove once we deprecate isSelected, setSelected etc...

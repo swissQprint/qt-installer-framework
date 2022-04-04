@@ -3,7 +3,7 @@ stages:
   - sign
   
 package-win64-release:
-  image: registry.swissqprint.com/sqp/devops/runner/msvc-2019:0.4-x86_64
+  image: registry.swissqprint.com/sqp/devops/runner/msvc-2019:1.0-x86_64
   stage: package
   tags:
     - docker
@@ -12,6 +12,7 @@ package-win64-release:
   only:
     - tags
   script:
+    - pip install --upgrade conan
     - conan remove sqpQtIFW -f
     - conan create . installer/release -s build_type=Release
     - conan upload sqpQtIFW --all -r=inhouse -c

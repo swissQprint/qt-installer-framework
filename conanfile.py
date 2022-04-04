@@ -28,7 +28,7 @@ class SQPQtIFWConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
     build_requires = (
         (build_tools),
-        ("QtStatic/5.15.1@3rdparty/release")
+        ("qt/5.15.3@3rdparty/release")
     )
     exports_sources = "src/*", "installerfw.pri", "installerfw.pro", "tools/*"
     exports = "gitinfo.json"
@@ -76,7 +76,7 @@ class SQPQtIFWConan(ConanFile):
         # dann für die Umgebung vorbereitet.
         env_build = VisualStudioBuildEnvironment(self)
         with tools.remove_from_path("qmake"):
-            path = os.environ["PATH"] + os.pathsep + self.deps_cpp_info['QtStatic'].rootpath + '\\bin'
+            path = os.environ["PATH"] + os.pathsep + self.deps_cpp_info['qt'].rootpath + '\\bin'
             with tools.environment_append(env_build.vars):
                 with tools.environment_append({"PATH" : path}):
                     vcvars = tools.vcvars_command(self.settings)
